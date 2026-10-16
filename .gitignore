@@ -1,0 +1,6 @@
+node_modules/
+.output/
+.wxt/
+spikes/results.json
+tests/e2e/*.png
+*.log

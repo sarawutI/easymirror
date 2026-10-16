@@ -1,0 +1,51 @@
+# EasyMirror
+
+Browser extension that mirrors a file from a link to your own storage hosts: paste a link (or right-click one), pick destinations, get share links back.
+
+Status: direct file links **and download pages** (e.g. `gofile.io/d/…`) to GoFile and Catbox. See [docs/plan.md](docs/plan.md) for what's next.
+
+## Try it
+
+```bash
+npm install
+npm run build
+```
+
+Then load `.output/chrome-mv3` as an unpacked extension:
+- **Chrome:** `chrome://extensions` → turn on Developer mode → Load unpacked.
+- **Edge:** `edge://extensions` → turn on Developer mode → Load unpacked.
+
+Three ways to mirror:
+- **Paste a link** in the popup. A direct file link mirrors straight away; a download page opens in a tab, you click its Download button, and EasyMirror takes over that download.
+- **Right-click a link** → "Mirror with EasyMirror".
+- **On a host's page:** popup → "Catch the next download on this page", or right-click the page → "Mirror the next download on this page". Then click the site's Download button.
+
+If a site's link only works once, or the page builds the file itself, your browser keeps its download and EasyMirror asks you to choose that file.
+
+## Develop
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev build with hot reload, opens a browser with the extension loaded |
+| `npm test` | Unit tests (Vitest) |
+| `npm run test:e2e` | Builds the test variant and drives the real popup against mock GoFile/Catbox (Playwright) |
+| `npm run build:spike && npm run spike:run` | M0 checks: large files, service-worker stop, page flow |
+| `npm run icons` | Redraws the toolbar icons |
+
+The `spike` build mode points every host at the local mock server in `spikes/server.mjs`, so tests never upload to the real sites.
+
+## Layout
+
+```
+src/
+  entrypoints/
+    background.ts      job manager, right-click menu, notifications, page flow
+    offscreen/         transfer engine (download to browser disk, upload with progress)
+    popup/             the popup UI
+    spike/             test control page (spike builds only)
+  engine/              transfer code and shared types
+  hosts/               one file per host: limits, request format, response → link
+  jobs/store.ts        job state and settings in browser storage
+docs/                  research, plan, M0 results
+spikes/, tests/e2e/    local mock server and automated browser tests
+```

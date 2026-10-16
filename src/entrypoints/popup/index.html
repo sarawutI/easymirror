@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EasyMirror</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <img src="/icon/32.png" alt="" width="20" height="20" />
+      <h1>EasyMirror</h1>
+    </header>
+
+    <section id="pick" hidden aria-labelledby="pick-title">
+      <h2 id="pick-title">Choose the downloaded file</h2>
+      <p id="pick-detail" class="hint"></p>
+      <label class="file-button">
+        <input id="pick-file" type="file" />
+        <span>Choose file…</span>
+      </label>
+      <p id="pick-status" class="hint" role="status"></p>
+    </section>
+
+    <form id="mirror-form" novalidate>
+      <label for="url">File or download page link</label>
+      <input id="url" name="url" type="url" placeholder="https://gofile.io/d/… or https://…/file.zip" autocomplete="off" required />
+
+      <fieldset>
+        <legend>Mirror to</legend>
+        <div id="destinations"></div>
+      </fieldset>
+
+      <p id="permission-hint" class="hint" hidden>
+        EasyMirror will ask once for permission to read files from other sites. It only uses it for links you mirror.
+      </p>
+      <p id="form-error" class="error" role="alert" hidden></p>
+      <button id="mirror" type="submit">Mirror</button>
+      <button id="watch" type="button" class="secondary">Catch the next download on this page</button>
+    </form>
+
+    <section aria-labelledby="recent-title">
+      <div class="section-head">
+        <h2 id="recent-title">Recent</h2>
+        <button id="clear" type="button" class="link-button" hidden>Clear finished</button>
+      </div>
+      <p id="empty" class="hint">
+        Mirrors you start show up here. You can also right-click a link and choose "Mirror with EasyMirror", or right-click a
+        host's page and choose "Mirror the next download on this page".
+      </p>
+      <ul id="jobs"></ul>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
