@@ -3,7 +3,7 @@
 // state goes back to the background as messages.
 import { fileNameFrom, formatBytes } from '@/engine/filename';
 import { openSource, openTemp, removeTemp, saveToTemp, upload } from '@/engine/transfer';
-import type { EngineEvent, FileInfo, JobState, TransferJob, UploadPlan, UploadSpec, UploadState } from '@/engine/types';
+import type { DestinationCheck, EngineEvent, FileInfo, JobState, TransferJob, UploadPlan, UploadSpec, UploadState } from '@/engine/types';
 
 const PROGRESS_INTERVAL_MS = 500;
 
@@ -37,13 +37,26 @@ function looksLikeWebPage(res: Response) {
   return /text\/html|application\/xhtml/i.test(type) && !/attachment/i.test(disposition);
 }
 
-async function planUploads(job: TransferJob, info: FileInfo): Promise<UploadSpec[]> {
+/** Before downloading: does any destination take this file? (The spike runner fixes its uploads up front.) */
+async function anyDestination(job: TransferJob, info: FileInfo): Promise<boolean> {
+  if (job.uploads) return job.uploads.length > 0;
+  const check = (await browser.runtime.sendMessage({
+    target: 'background',
+    type: 'check-destinations',
+    id: job.id,
+    info,
+  } satisfies EngineEvent)) as DestinationCheck | undefined;
+  return (check?.accepted ?? 0) > 0;
+}
+
+/** Once the file is on disk: the uploads, with each host's upload opened just now. */
+async function prepareUploads(job: TransferJob, file: File): Promise<UploadSpec[]> {
   if (job.uploads) return job.uploads;
   const plan = (await browser.runtime.sendMessage({
     target: 'background',
-    type: 'plan-uploads',
+    type: 'prepare-uploads',
     id: job.id,
-    info,
+    info: { name: file.name, size: file.size, type: file.type || undefined },
   } satisfies EngineEvent)) as UploadPlan | undefined;
   return plan?.uploads ?? [];
 }
@@ -55,7 +68,14 @@ async function run(job: TransferJob) {
 
   try {
     const file = job.picked ? await usePickedFile(job, job.picked, tempName, update) : await download(job, tempName, update);
-    if (file) await uploadAll(job, file, update);
+    if (!file) return;
+    job.uploads = await prepareUploads(job, file);
+    if (!job.uploads.length) {
+      // Every host was skipped or couldn't open an upload; the reasons are on the job.
+      update({ status: 'done' });
+      return;
+    }
+    await uploadAll(job, file, update);
   } catch (e) {
     update({ status: 'error', error: message(e) });
   } finally {
@@ -95,8 +115,7 @@ async function download(job: TransferJob, tempName: string, update: (p: Partial<
   };
   update({ name: info.name, size: info.size, total: info.size });
 
-  job.uploads = await planUploads(job, info);
-  if (!job.uploads.length) {
+  if (!(await anyDestination(job, info))) {
     // Every destination turned the file down; the reasons are already on the job.
     await res.body?.cancel();
     update({ status: 'done' });
@@ -121,8 +140,7 @@ async function usePickedFile(
   update: (p: Partial<JobState>) => unknown,
 ): Promise<File | undefined> {
   update({ name: info.name, size: info.size, total: info.size, downloaded: info.size ?? 0, error: undefined });
-  job.uploads = await planUploads(job, info);
-  if (!job.uploads.length) {
+  if (!(await anyDestination(job, info))) {
     update({ status: 'done' });
     return undefined;
   }

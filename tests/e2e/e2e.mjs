@@ -116,7 +116,7 @@ try {
 
   await test('catches an oversized file whose size was unknown until downloaded', async () => {
     const r = await mirror(`${BASE}/file/stream.bin?size=${210 * MB}&chunked=1`);
-    assert.match(r.uploads.Catbox, /Too big for this host \(210 MB, limit 200 MB\)/);
+    assert.match(r.uploads.Catbox, /Catbox takes files up to 200 MB \(this one is 210 MB\)/);
     assert.match(r.uploads.GoFile, /^https:\/\/gofile\.io\/d\//);
   });
 
@@ -302,6 +302,16 @@ try {
     );
   });
 
+  await test('FileDitch opens its upload only after the download, so an unknown size is fine', async () => {
+    const r = await mirror(`${BASE}/file/no-length.bin?size=${2.5 * MB}&chunked=1`, { destinations: ['fileditch'] });
+    assert.equal(r.status, 'Link ready');
+    const s = await stats();
+    const init = s.hosts.fileditchInit.find((x) => x.name === 'no-length.bin');
+    assert.equal(init.size, 2.5 * MB, 'started with the real size');
+    assert.ok(init.at >= s.served['no-length.bin'].finishedAt, 'started after the download finished');
+    assert.equal(s.received['fileditch:no-length.bin'].sha256, s.served['no-length.bin'].sha256);
+  });
+
   await test("FileDitch is skipped for file types it doesn't accept", async () => {
     const r = await mirror(`${BASE}/file/tool.apk?size=1000`, { destinations: ['gofile', 'fileditch'] });
     assert.match(r.uploads.FileDitch, /FileDitch doesn't accept \.apk files/);
@@ -353,6 +363,7 @@ try {
       s.hosts.xfsUploads.map((u) => [u.site, u.utype]).sort(),
       [['clicknupload.click', 'reg'], ['send.now', 'reg']],
     );
+    for (const u of s.hosts.xfsUploads) assert.equal(u.query, '?upload_type=file&utype=reg', u.site);
   });
 
   await test('a revoked XFileSharing key gives a clear message', async () => {

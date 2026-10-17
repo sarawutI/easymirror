@@ -32,13 +32,14 @@ export const fileditch: Destination = {
   check({ name, size }) {
     const ext = extensionOf(name);
     if (BLOCKED.has(ext)) return `FileDitch doesn't accept .${ext} files`;
-    if (size === undefined) return "FileDitch needs the file size up front, and this link didn't give it";
+    // An unknown size is fine here: uploads are opened after the download, with the real size.
     if (size === 0) return "FileDitch doesn't accept empty files";
-    if (size > MAX_BYTES) return `FileDitch takes files up to 150 GB (this one is ${formatBytes(size)})`;
+    if (size !== undefined && size > MAX_BYTES) return `FileDitch takes files up to 150 GB (this one is ${formatBytes(size)})`;
     return undefined;
   },
 
   async buildUpload(info) {
+    if (info.size === undefined) throw new Error('FileDitch needs the file size before uploading');
     const base = endpoints.fileditchChunked;
     const res = await fetch(`${base}?action=init&filename=${encodeURIComponent(info.name)}&size=${info.size}`, { method: 'POST' });
     const json = await res.json().catch(() => ({}));

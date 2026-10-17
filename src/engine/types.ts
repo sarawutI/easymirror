@@ -101,6 +101,12 @@ export interface JobState {
   updatedAt: number;
 }
 
+/** Before the download: how many destinations would take the file. */
+export interface DestinationCheck {
+  accepted: number;
+}
+
+/** After the download: the uploads to send, with each host's upload already opened. */
 export interface UploadPlan {
   uploads: UploadSpec[];
 }
@@ -109,7 +115,13 @@ export interface UploadPlan {
 export type EngineEvent =
   | { target: 'background'; type: 'job-update'; id: string; patch: Partial<JobState> }
   | { target: 'background'; type: 'upload-update'; id: string; label: string; patch: UploadState }
-  | { target: 'background'; type: 'plan-uploads'; id: string; info: FileInfo }
+  /** Before downloading: skip destinations that can't take the file (size, type). */
+  | { target: 'background'; type: 'check-destinations'; id: string; info: FileInfo }
+  /**
+   * After downloading, with the exact size: open each remaining host's upload. Done
+   * this late so upload sessions can't expire while a long download runs.
+   */
+  | { target: 'background'; type: 'prepare-uploads'; id: string; info: FileInfo }
   /** The link opened a web page; the background switches the job to the page flow. */
   | { target: 'background'; type: 'source-is-page'; id: string; url: string }
   | { target: 'background'; type: 'source-ok'; id: string }

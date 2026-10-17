@@ -1,5 +1,5 @@
 import type { Browser } from 'wxt/browser';
-import type { EngineEvent, FetchSpec, FileInfo, JobState, TransferJob, UploadPlan, UploadSpec, UploadState } from '@/engine/types';
+import type { DestinationCheck, EngineEvent, FetchSpec, FileInfo, JobState, TransferJob, UploadPlan, UploadSpec, UploadState } from '@/engine/types';
 import { destinationById } from '@/hosts';
 import { getJob, getSettings, isFinished, listJobs, patchJob, summarize } from '@/jobs/store';
 
@@ -100,16 +100,38 @@ async function startMirror(url: string, destinationIds: string[]): Promise<strin
   return id;
 }
 
-/** Called by the engine once the source answers: which destinations get the file? */
-async function planUploads(id: string, info: FileInfo): Promise<UploadPlan> {
-  const job = await getJob(id);
+/** Destinations of a job that are still waiting for the file. */
+const pendingDestinations = (job: JobState | undefined) =>
+  Object.entries(job?.uploads ?? {})
+    .filter(([, u]) => !u.done)
+    .map(([destId]) => destId);
+
+/** Called by the engine once the source answers, before downloading: which destinations would take the file? */
+async function checkDestinations(id: string, info: FileInfo): Promise<DestinationCheck> {
+  const skipped: Record<string, UploadState> = {};
+  let accepted = 0;
+  for (const destId of pendingDestinations(await getJob(id))) {
+    const reason = destinationById(destId)?.check(info);
+    if (reason) skipped[destId] = { sent: 0, done: true, skipped: reason };
+    else accepted++;
+  }
+  await patchJob(id, (j) => Object.assign(j.uploads, skipped));
+  return { accepted };
+}
+
+/**
+ * Called by the engine once the file is on disk, with its exact size: opens each
+ * remaining host's upload. Not earlier, so upload sessions can't expire during a long download.
+ */
+async function prepareUploads(id: string, info: FileInfo): Promise<UploadPlan> {
   const uploads: UploadSpec[] = [];
   const outcome: Record<string, UploadState> = {};
   // Hosts are prepared in parallel; one failing (e.g. signed out) doesn't stop the rest.
   await Promise.all(
-    Object.keys(job?.uploads ?? {}).map(async (destId) => {
+    pendingDestinations(await getJob(id)).map(async (destId) => {
       const dest = destinationById(destId);
       if (!dest) return;
+      // Checked again now that the size is certain (the source may not have said).
       const reason = dest.check(info);
       if (reason) {
         outcome[destId] = { sent: 0, done: true, skipped: reason };
@@ -254,7 +276,8 @@ async function maybeFinish(job: JobState) {
 }
 
 async function handleEngineEvent(ev: EngineEvent): Promise<unknown> {
-  if (ev.type === 'plan-uploads') return planUploads(ev.id, ev.info);
+  if (ev.type === 'check-destinations') return checkDestinations(ev.id, ev.info);
+  if (ev.type === 'prepare-uploads') return prepareUploads(ev.id, ev.info);
   if (ev.type === 'source-is-page') return openPageFlow(ev.id, ev.url);
   if (ev.type === 'job-update') {
     const job = await patchJob(ev.id, (j) => {

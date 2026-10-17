@@ -83,12 +83,18 @@ export function xfsDestination(site: XfsSite): Destination {
       }
       // utype is the account type the upload counts against.
       const premium = !!info.result?.premium_expire && Date.parse(info.result.premium_expire) > Date.now();
+      const utype = premium ? 'prem' : 'reg';
+      // The sites' own upload forms (checked 2026-10-17) also put these in the address,
+      // which makes upload.cgi answer with JSON; the API docs only show the form fields.
+      const url = new URL(server.result);
+      url.searchParams.set('upload_type', 'file');
+      url.searchParams.set('utype', utype);
       return {
         label: site.id,
         kind: 'multipart',
-        url: server.result,
+        url: url.href,
         field: 'file_0',
-        fields: { sess_id: server.sess_id, utype: premium ? 'prem' : 'reg' },
+        fields: { sess_id: server.sess_id, utype },
       };
     },
 

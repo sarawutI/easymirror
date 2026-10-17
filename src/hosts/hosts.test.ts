@@ -94,6 +94,16 @@ describe('gofile', () => {
   it('rejects a non-JSON answer', async () => {
     await expect(gofile.parseResponse(502, '<html>Bad gateway</html>')).rejects.toThrow(/unexpected answer \(HTTP 502\)/);
   });
+
+  it('forgets a guest token GoFile no longer accepts, but keeps a pasted one', async () => {
+    await gofile.parseResponse(200, ok({ guestToken: 'old-guest' }));
+    await expect(gofile.parseResponse(401, JSON.stringify({ status: 'error-auth' }))).rejects.toThrow(/Mirror again/);
+    expect((await gofile.buildUpload({ name: 'd.bin' })).headers).toBeUndefined();
+
+    await browser.storage.local.set({ 'hosts.gofile.token': 'mine', 'hosts.gofile.tokenKind': 'user' });
+    await expect(gofile.parseResponse(401, JSON.stringify({ status: 'error-auth' }))).rejects.toThrow(/refused the upload \(error-auth\)/);
+    expect((await gofile.buildUpload({ name: 'e.bin' })).headers).toEqual({ Authorization: 'Bearer mine' });
+  });
 });
 
 describe('pixeldrain', () => {
@@ -208,8 +218,8 @@ describe('fileditch', () => {
     expect(fileditch.check({ name: 'clip.mp4', size: 5 })).toBeUndefined();
   });
 
-  it('needs the size up front', () => {
-    expect(fileditch.check({ name: 'clip.mp4' })).toMatch(/needs the file size/);
+  it('accepts a file whose size is not known yet (it is opened after the download)', () => {
+    expect(fileditch.check({ name: 'clip.mp4' })).toBeUndefined();
   });
 
   it('starts an upload and describes its pieces', async () => {
@@ -285,7 +295,7 @@ describe('XFileSharing hosts', () => {
     const spec = await dest.buildUpload({ name: 'a.bin' });
     expect(spec).toMatchObject({
       kind: 'multipart',
-      url: 'https://s1.clicknupload.net/cgi-bin/upload.cgi',
+      url: 'https://s1.clicknupload.net/cgi-bin/upload.cgi?upload_type=file&utype=reg',
       field: 'file_0',
       fields: { sess_id: 'S1', utype: 'reg' },
     });

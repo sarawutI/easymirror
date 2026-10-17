@@ -50,6 +50,13 @@ export const gofile: Destination = {
       const reason = json?.status ?? `HTTP ${status}`;
       if (reason === 'error-rateLimit') throw new Error('GoFile is rate-limiting uploads; try again in a few minutes');
       if (reason === 'error-limits') throw new Error('Your GoFile account is full (10,000 files on free accounts)');
+      // A guest account GoFile no longer accepts would fail every later upload too, so
+      // forget it; the next mirror starts a new one. A token the user pasted is kept.
+      const kind = (await browser.storage.local.get(TOKEN_KIND_KEY))[TOKEN_KIND_KEY];
+      if (kind === 'guest' && (status === 401 || status === 403 || /auth|token/i.test(String(reason)))) {
+        await browser.storage.local.remove([TOKEN_KEY, TOKEN_KIND_KEY]);
+        throw new Error(`GoFile no longer accepts EasyMirror's guest account (${reason}). Mirror again to use a new one.`);
+      }
       throw new Error(`GoFile refused the upload (${reason})`);
     }
     const data = json.data ?? {};

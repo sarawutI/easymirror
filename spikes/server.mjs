@@ -47,7 +47,7 @@ function streamFile(res, size, name, extraHeaders = {}, { chunked = false } = {}
       sent += n;
       if (!res.write(chunk)) return res.once('drain', pump);
     }
-    served[name] = { bytes: sent, sha256: hash.digest('hex') };
+    served[name] = { bytes: sent, sha256: hash.digest('hex'), finishedAt: Date.now() };
     res.end();
   };
   res.on('close', () => {
@@ -79,7 +79,7 @@ function receiveMultipart(req, fileField, done) {
 // Accepted credentials: Pixeldrain key "test-key", Google/Yandex token "test-token".
 const json = (res, status, body, headers = {}) =>
   res.writeHead(status, { 'Content-Type': 'application/json', ...headers }).end(JSON.stringify(body));
-const hosts = { driveShared: [], driveFolders: [], yandexFiles: new Set(), yandexPublished: [], xfsUploads: [], fileditchFinish: [] };
+const hosts = { driveShared: [], driveFolders: [], yandexFiles: new Set(), yandexPublished: [], xfsUploads: [], fileditchInit: [], fileditchFinish: [] };
 
 /** Hashes a raw request body into received[key]; then calls done(). */
 function receiveRaw(req, key, done) {
@@ -181,6 +181,7 @@ function mockFileditch(req, res, url) {
     const id = randomBytes(6).toString('hex');
     const total = Math.ceil(size / CHUNK);
     ditch.set(id, { name, size, total, pieces: new Map() });
+    hosts.fileditchInit.push({ name, size, at: Date.now() });
     return req.resume().on('end', () => json(res, 200, { success: true, id, chunk_size: CHUNK, total_chunks: total }));
   }
   const up = ditch.get(url.searchParams.get('id'));
@@ -233,7 +234,7 @@ function mockXfs(req, res, p, url) {
   }
   if (req.method === 'POST' && path === '/cgi-bin/upload.cgi') {
     return receiveMultipart(req, 'file_0', (file, fields) => {
-      hosts.xfsUploads.push({ site, sess_id: fields.sess_id, utype: fields.utype });
+      hosts.xfsUploads.push({ site, sess_id: fields.sess_id, utype: fields.utype, query: url.search });
       if (fields.sess_id !== `sess-${site}`) return json(res, 200, [{ file_code: '', file_status: 'session expired' }]);
       received[`${site}:${file.filename}`] = file;
       json(res, 200, [{ file_code: randomBytes(6).toString('hex'), file_status: 'OK' }]);
