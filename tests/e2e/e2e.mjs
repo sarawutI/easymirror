@@ -20,7 +20,8 @@ await new Promise((r) => server.stdout.once('data', r));
 
 const profile = mkdtempSync(path.join(tmpdir(), 'easymirror-e2e-'));
 const context = await chromium.launchPersistentContext(profile, {
-  channel: 'chromium',
+  // CHANNEL=msedge runs the same tests in Microsoft Edge.
+  channel: process.env.CHANNEL ?? 'chromium',
   headless: true,
   args: [`--disable-extensions-except=${extPath}`, `--load-extension=${extPath}`],
 });
@@ -437,6 +438,18 @@ try {
     await setStorage({ 'accounts.pixeldrain': { secret: 'revoked', label: 'tester' } });
     const r = await mirror(`${BASE}/file/again.bin?size=1000`, { destinations: ['pixeldrain'] });
     assert.match(r.uploads.Pixeldrain, /rejected your API key/);
+  });
+
+  await test('a host that takes the file but never answers is given up on; other hosts still finish', async () => {
+    const r = await mirror(`${BASE}/file/silent.bin?size=${MB}`);
+    assert.equal(r.status, '1 of 2 links ready');
+    assert.match(r.uploads.Catbox, /got the whole file but didn't answer for 5 seconds/);
+    assert.match(r.uploads.GoFile, /^https:\/\/gofile\.io\/d\//);
+  });
+
+  await test('a download that goes quiet ends with a clear message instead of hanging', async () => {
+    const r = await mirror(`${BASE}/file/quiet.bin?size=${20 * MB}&stall=${2 * MB}`);
+    assert.match(r.status, /Couldn't download the file: the download stopped moving for 3 seconds/);
   });
 
   await test('explains when the source link is broken', async () => {

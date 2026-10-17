@@ -111,7 +111,7 @@ export interface UploadPlan {
   uploads: UploadSpec[];
 }
 
-/** Messages from the offscreen engine to the background. */
+/** Messages from the transfer engine to the background. */
 export type EngineEvent =
   | { target: 'background'; type: 'job-update'; id: string; patch: Partial<JobState> }
   | { target: 'background'; type: 'upload-update'; id: string; label: string; patch: UploadState }

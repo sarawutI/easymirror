@@ -5,10 +5,12 @@
 //   GET  /stats                         sha256 + size of everything served/received
 //   GET  /host/page?variant=..&size=..&name=..   fake file host: cookie, countdown, button
 //        variants: link-multi | link-single | form-post | js-download | blob
-//   GET  /file/:name?size=N[&chunked=1]  same, named by path, optionally without Content-Length
+//   GET  /file/:name?size=N[&chunked=1][&stall=B]  same, named by path, optionally without
+//        Content-Length, or going quiet (connection left open) after B bytes
 //   GET  /page.html, /missing             a web page and a 404, for error handling
 //   POST /mock/gofile/uploadfile         GoFile upload API stand-in
-//   POST /mock/catbox/api.php            Catbox API stand-in (rejects names containing "reject")
+//   POST /mock/catbox/api.php            Catbox API stand-in (rejects names containing "reject",
+//                                        never answers for names containing "silent")
 //   /mock/buzzheavier, /mock/vikingfile, /mock/krakenfiles (+ /_uploader/gallery/upload)
 //   /mock/xfs/<site>/...                 XFileSharing API stand-in (key "test-key")
 //   /mock/1fichier..., /mock/fileditch/chunked.php   1Fichier and FileDitch stand-ins
@@ -31,7 +33,7 @@ const received = {}; // `${kind}:${name}` -> { bytes, sha256 }
 const sessions = new Set();
 const tokens = new Map(); // token -> { sess, single, used, size, name }
 
-function streamFile(res, size, name, extraHeaders = {}, { chunked = false } = {}) {
+function streamFile(res, size, name, extraHeaders = {}, { chunked = false, stallAt = Infinity } = {}) {
   res.writeHead(200, {
     'Content-Type': 'application/octet-stream',
     ...(chunked ? {} : { 'Content-Length': size }),
@@ -41,6 +43,7 @@ function streamFile(res, size, name, extraHeaders = {}, { chunked = false } = {}
   let sent = 0;
   const pump = () => {
     while (sent < size) {
+      if (sent >= stallAt) return; // go quiet without closing
       const n = Math.min(BLOCK, size - sent);
       const chunk = n === BLOCK ? block : block.subarray(0, n);
       hash.update(chunk);
@@ -361,7 +364,10 @@ createServer((req, res) => {
 
   if (req.method === 'GET' && p.startsWith('/file/')) {
     const name = decodeURIComponent(p.slice('/file/'.length));
-    return streamFile(res, Number(url.searchParams.get('size')), name, {}, { chunked: url.searchParams.has('chunked') });
+    return streamFile(res, Number(url.searchParams.get('size')), name, {}, {
+      chunked: url.searchParams.has('chunked'),
+      stallAt: url.searchParams.has('stall') ? Number(url.searchParams.get('stall')) : Infinity,
+    });
   }
 
   if (req.method === 'GET' && p === '/page.html') {
@@ -384,6 +390,7 @@ createServer((req, res) => {
     return receiveMultipart(req, 'fileToUpload', (file, fields) => {
       if (fields.reqtype !== 'fileupload') return res.writeHead(400).end('Bad reqtype');
       if (file.filename.includes('reject')) return res.writeHead(412).end('File type not allowed');
+      if (file.filename.includes('silent')) return; // takes the file, never answers
       received[`catbox:${file.filename}`] = file;
       const ext = file.filename.includes('.') ? file.filename.split('.').pop() : 'bin';
       res.writeHead(200, { 'Content-Type': 'text/plain' }).end(`https://files.catbox.moe/${randomBytes(3).toString('hex')}.${ext}`);

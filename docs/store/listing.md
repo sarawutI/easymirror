@@ -144,28 +144,21 @@ Reuse the shared text: name, summary, detailed description, category, privacy po
 
 ## Firefox Add-ons (AMO)
 
-Not ready to submit yet: the Firefox build still needs work (milestone M5). Firefox has no offscreen documents, so the transfer engine has to run in the background page there.
+The Firefox build is Manifest V2: Firefox has no offscreen documents, so the transfer engine runs in a persistent background page there. `npm run zip` makes `easymirror-<version>-firefox.zip` and `easymirror-<version>-sources.zip`.
 
-When it is ready:
 - **Summary:** the short summary above (250-character limit).
 - **Description:** the detailed description above.
-- **Data collection declaration**, required in the manifest for new extensions. EasyMirror sends credentials and website content to the services the user picks, so in `wxt.config.ts` for the Firefox build:
+- **Data collection:** already declared in the manifest (`wxt.config.ts`): `authenticationInfo` (API keys and tokens go to the service they belong to) and `websiteContent` (the file goes to the hosts the user picks). Firefox shows this at install. `strict_min_version` is 140, the first version with that built-in consent screen.
+- **Add-on ID:** `easymirror@sarawuti.github.io` (set in `wxt.config.ts`; it must never change after the first upload).
+- **Source code:** AMO asks for it because the code is bundled. Answer "Yes" to "Do you need to submit source code?", upload `easymirror-<version>-sources.zip`, and put this in the reviewer notes:
 
-  ```json
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "[easymirror@YOUR-DOMAIN]",
-      "strict_min_version": "140.0",
-      "data_collection_permissions": {
-        "required": ["authenticationInfo", "websiteContent"]
-      }
-    }
-  }
   ```
-
-  `strict_min_version` 140 avoids having to build a separate consent screen for older Firefox versions.
-- **Source code:** AMO asks for the source, because the code is bundled. Upload the repository as a zip, and give these build steps in the reviewer notes:
-  `npm ci` then `npx wxt build -b firefox`. Output is in `.output/firefox-mv3`.
+  Build steps (Node 20 or newer, npm, any OS):
+    npm ci
+    npx wxt build -b firefox
+  The add-on is then in .output/firefox-mv2 and matches the uploaded package.
+  Public repository: https://github.com/sarawutI/easymirror
+  ```
 
 ---
 

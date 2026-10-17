@@ -3,6 +3,16 @@ import type { FetchSpec, UploadSpec } from './types';
 /** Writes are batched to this size; awaiting a write per network chunk is slow. */
 const WRITE_BATCH = 8 * 1024 * 1024;
 
+// A connection can stop moving without ever closing; without a limit the job would sit
+// at "downloading" or "uploading" forever. Test builds use seconds so tests stay quick.
+const TEST = import.meta.env.MODE === 'spike';
+/** No bytes moving for this long means the connection is stuck. */
+const STALL_MS = TEST ? 3_000 : 3 * 60_000;
+/** Once the whole file is sent, how long a host may take to answer (big files take a while to process). */
+const ANSWER_MS = TEST ? 5_000 : 15 * 60_000;
+const CHECK_MS = TEST ? 250 : 10_000;
+const duration = (ms: number) => (ms >= 60_000 ? `${ms / 60_000} minutes` : `${ms / 1000} seconds`);
+
 async function jobsDir() {
   const root = await navigator.storage.getDirectory();
   return root.getDirectoryHandle('jobs', { create: true });
@@ -32,7 +42,15 @@ export async function openSource(spec: FetchSpec): Promise<Response> {
     for (const [k, values] of Object.entries(spec.form)) for (const v of values) body.append(k, v);
     init.body = body;
   }
-  const res = await fetch(spec.url, init);
+  // Only waiting for the answer is limited here; saveToTemp watches the body.
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(new Error(`the site didn't answer for ${duration(STALL_MS)}`)), STALL_MS);
+  let res: Response;
+  try {
+    res = await fetch(spec.url, { ...init, signal: ctl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok || !res.body) throw new Error(`source answered HTTP ${res.status}`);
   return res;
 }
@@ -50,6 +68,14 @@ export async function saveToTemp(
   let loaded = 0;
   let batch: Uint8Array[] = [];
   let batchSize = 0;
+  let moved = Date.now();
+  let watch: ReturnType<typeof setInterval> | undefined;
+  const stalled = new Promise<never>((_, reject) => {
+    watch = setInterval(() => {
+      if (Date.now() - moved > STALL_MS) reject(new Error(`the download stopped moving for ${duration(STALL_MS)}; the site may have dropped it. Try again.`));
+    }, CHECK_MS);
+  });
+  stalled.catch(() => {});
   const flush = async () => {
     if (!batchSize) return;
     const merged = new Uint8Array(batchSize);
@@ -64,21 +90,26 @@ export async function saveToTemp(
   };
   try {
     for (;;) {
-      const { done, value } = await reader.read();
+      const { done, value } = await Promise.race([reader.read(), stalled]);
+      moved = Date.now();
       if (done) break;
       batch.push(value);
       batchSize += value.byteLength;
       loaded += value.byteLength;
       if (batchSize >= WRITE_BATCH) {
         await flush();
+        moved = Date.now();
         onProgress(loaded, total);
       }
     }
     await flush();
     await writable.close();
   } catch (e) {
+    reader.cancel().catch(() => {});
     await writable.abort().catch(() => {});
     throw e;
+  } finally {
+    clearInterval(watch);
   }
   onProgress(loaded, total);
   return handle.getFile();
@@ -94,15 +125,45 @@ function request(
   body: Blob | FormData | null,
   onProgress: (sent: number) => void,
 ): Promise<Answer> {
+  const host = new URL(url).host;
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, url);
     for (const [k, v] of Object.entries(headers ?? {})) xhr.setRequestHeader(k, v);
-    xhr.upload.onprogress = (e) => onProgress(e.loaded);
+
+    // Two limits: STALL_MS while bytes should be moving, ANSWER_MS while the host works
+    // on a file it has fully received.
+    let moved = Date.now();
+    let waiting = body === null;
+    let gaveUp: string | undefined;
+    xhr.upload.onprogress = (e) => {
+      moved = Date.now();
+      onProgress(e.loaded);
+    };
+    xhr.upload.onload = () => {
+      moved = Date.now();
+      waiting = true;
+    };
+    xhr.onreadystatechange = () => {
+      moved = Date.now();
+      if (xhr.readyState >= XMLHttpRequest.HEADERS_RECEIVED) waiting = false;
+    };
+    xhr.onprogress = () => (moved = Date.now());
+    const watch = setInterval(() => {
+      const quiet = Date.now() - moved;
+      if (waiting && quiet > ANSWER_MS) {
+        gaveUp = `${host} got the whole file but didn't answer for ${duration(ANSWER_MS)}, so EasyMirror stopped waiting. The file may still appear on the site.`;
+      } else if (!waiting && quiet > STALL_MS) {
+        gaveUp = `The upload to ${host} stopped moving for ${duration(STALL_MS)}, so EasyMirror gave up. Try again later.`;
+      }
+      if (gaveUp) xhr.abort();
+    }, CHECK_MS);
+    xhr.onloadend = () => clearInterval(watch);
+
     xhr.onload = () => resolve({ status: xhr.status, response: xhr.responseText });
     // XHR gives no detail here: refused connection, dropped connection and blocked request look alike.
-    xhr.onerror = () => reject(new Error(`Couldn't reach the upload server (${new URL(url).host}). The site may be down; try again later.`));
-    xhr.onabort = () => reject(new Error('upload aborted'));
+    xhr.onerror = () => reject(new Error(`Couldn't reach the upload server (${host}). The site may be down; try again later.`));
+    xhr.onabort = () => reject(new Error(gaveUp ?? 'upload aborted'));
     xhr.send(body);
   });
 }

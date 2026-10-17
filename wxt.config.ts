@@ -13,15 +13,20 @@ const OAUTH_HOST_PERMISSIONS = ['https://www.googleapis.com/*', 'https://cloud-a
 
 export default defineConfig({
   srcDir: 'src',
-  manifest: ({ mode }) => {
+  manifest: ({ mode, browser }) => {
     const oauth = oauthHostsEnabled(mode);
+    const firefox = browser === 'firefox';
+    // Reading files from whatever site a link points to; asked for on first mirror.
+    // Firefox's build is Manifest V2 (see the background entrypoint), which lists it as a permission.
+    const allSites = mode === 'spike' ? [] : ['<all_urls>'];
     return {
       name: 'EasyMirror',
       description: 'Mirror a file from a link to your own storage accounts.',
       ...(oauth ? { key: EXTENSION_KEY } : {}),
       permissions: [
         'storage',
-        'offscreen',
+        // Chrome runs the engine in an offscreen document; Firefox in the background page.
+        ...(firefox ? [] : ['offscreen']),
         'downloads',
         'webRequest',
         'contextMenus',
@@ -49,9 +54,24 @@ export default defineConfig({
         // gets every site up front, so tests never hit a permission prompt.
         ...(mode === 'spike' ? ['http://127.0.0.1/*', '<all_urls>'] : []),
       ],
-      // Reading files from whatever site a link points to; asked for on first mirror.
-      optional_host_permissions: mode === 'spike' ? [] : ['<all_urls>'],
+      ...(firefox ? { optional_permissions: allSites } : { optional_host_permissions: allSites }),
+      ...(firefox && {
+        browser_specific_settings: {
+          gecko: {
+            id: 'easymirror@sarawuti.github.io',
+            // The first version with Firefox's built-in data consent (below).
+            strict_min_version: '140.0',
+            // The file the user picks (website content) goes to the hosts they choose, and
+            // each API key or token (authentication info) to the service it belongs to.
+            data_collection_permissions: { required: ['authenticationInfo', 'websiteContent'] },
+          },
+        },
+      }),
     };
+  },
+  zip: {
+    // The source zip Firefox reviewers get: leave out local files git ignores, and images.
+    excludeSources: ['.env.local', '**/*.log', 'spikes/results.json', 'tests/e2e/*.png', 'store-assets/**'],
   },
   hooks: {
     // The spike control page only ships in spike builds.

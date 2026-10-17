@@ -17,6 +17,8 @@ Then load `.output/chrome-mv3` as an unpacked extension:
 - **Chrome:** `chrome://extensions` → turn on Developer mode → Load unpacked.
 - **Edge:** `edge://extensions` → turn on Developer mode → Load unpacked.
 
+For Firefox (140 or newer), run `npx wxt build -b firefox`, open `about:debugging#/runtime/this-firefox` → Load Temporary Add-on, and pick `.output/firefox-mv2/manifest.json`.
+
 Three ways to mirror:
 - **Paste a link** in the popup. A direct file link mirrors straight away; a download page opens in a tab, you click its Download button, and EasyMirror takes over that download.
 - **Right-click a link** → "Mirror with EasyMirror".
@@ -30,7 +32,9 @@ If a site's link only works once, or the page builds the file itself, your brows
 |---|---|
 | `npm run dev` | Dev build with hot reload, opens a browser with the extension loaded |
 | `npm test` | Unit tests (Vitest) |
-| `npm run test:e2e` | Builds the test variant and drives the real popup against mock hosts (Playwright) |
+| `npm run test:e2e` | Builds the test variant and drives the real popup against mock hosts (Playwright). `CHANNEL=msedge node tests/e2e/e2e.mjs` runs it in Edge |
+| `npm run real-upload -- gofile,catbox` | Uploads one tiny text file to the named **real** hosts and prints the links. API keys come from `.env.local` (see `.env.example`) |
+| `npm run zip` | Store zips in `.output/`: Chrome/Edge, Firefox, and the source zip Firefox reviewers ask for |
 | `npm run build:spike && npm run spike:run` | M0 checks: large files, service-worker stop, page flow |
 | `npm run icons` | Redraws the toolbar icons |
 

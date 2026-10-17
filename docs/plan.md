@@ -119,6 +119,7 @@ Plus a **generic direct-URL source**: any link that returns a file directly.
 
 **M5 — Release**
 - Firefox build, privacy policy, Chrome Web Store and Firefox Add-ons submission.
+- 2026-10-17: version 1.0.0. Firefox build done (Manifest V2, engine in the background page; lint clean, not yet tried by hand). The Chrome build passes every e2e test in Edge too. Transfers now give up after 3 minutes with no bytes moving, or 15 minutes without an answer once the whole file is sent. Submitting to Firefox Add-ons and Edge Add-ons first; Chrome Web Store later.
 
 ## Risks
 

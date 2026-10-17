@@ -78,6 +78,13 @@ async function ensureOffscreen() {
 }
 
 async function startTransfer(job: TransferJob) {
+  if (import.meta.env.FIREFOX) {
+    // Firefox has no offscreen documents, but its background page stays loaded, so the
+    // engine runs right here and its events are handled directly.
+    const { runJob } = await import('@/engine/engine');
+    void runJob(job, handleEngineEvent);
+    return;
+  }
   await ensureOffscreen();
   await browser.runtime.sendMessage({ target: 'offscreen', type: 'transfer', job });
 }
@@ -247,8 +254,10 @@ async function onDownloadCreated(item: Browser.downloads.DownloadItem) {
 
 async function updateBadge() {
   const active = (await listJobs()).filter((j) => !isFinished(j)).length;
-  await browser.action.setBadgeBackgroundColor({ color: '#2563eb' });
-  await browser.action.setBadgeText({ text: active ? String(active) : '' });
+  // Firefox's build is Manifest V2, where the toolbar button is browserAction.
+  const button = browser.action ?? (browser as any).browserAction;
+  await button.setBadgeBackgroundColor({ color: '#2563eb' });
+  await button.setBadgeText({ text: active ? String(active) : '' });
 }
 
 /** Notifies once, when the transfer and every upload have settled. */
@@ -342,112 +351,117 @@ async function cancelJob(id: string) {
   await updateBadge();
 }
 
-export default defineBackground(() => {
-  browser.runtime.onInstalled.addListener(async () => {
-    // Start clean so an update or reload never trips over duplicate ids.
-    await browser.contextMenus.removeAll();
-    browser.contextMenus.create({ id: MENU_LINK, title: 'Mirror with EasyMirror', contexts: ['link'] });
-    browser.contextMenus.create({ id: MENU_PAGE, title: 'Mirror the next download on this page', contexts: ['page'] });
-  });
-
-  browser.contextMenus.onClicked.addListener(async (info, tab) => {
-    if (info.menuItemId !== MENU_LINK && info.menuItemId !== MENU_PAGE) return;
-    // Reading files from arbitrary sites needs the optional all-sites permission.
-    // A menu click is a user gesture, but only until the first await, so ask first;
-    // when it's already granted this resolves at once without a prompt.
-    const allowed = await browser.permissions.request(ALL_SITES).catch(() => false);
-    if (!allowed) {
-      // Fall back to the popup page, which explains the permission and asks again.
-      const query = info.linkUrl ? `?url=${encodeURIComponent(info.linkUrl)}` : '?tab=1';
-      await browser.tabs.create({ url: browser.runtime.getURL(`/popup.html${query}`) });
-      return;
-    }
-    const { destinations } = await getSettings();
-    if (info.menuItemId === MENU_LINK && info.linkUrl) {
-      await startMirror(info.linkUrl, destinations);
-    } else if (info.menuItemId === MENU_PAGE && tab?.id !== undefined) {
-      const id = await newJob(destinations, (j) => (j.sourceUrl = info.pageUrl ?? tab.url));
-      await watchTab(id, tab.id, info.pageUrl ?? tab.url);
-    }
-  });
-
-  browser.notifications.onClicked.addListener(async (id) => {
-    await browser.notifications.clear(id);
-    if (!id.endsWith(':hint')) await browser.tabs.create({ url: browser.runtime.getURL('/popup.html?tab=1') });
-  });
-
-  browser.tabs.onRemoved.addListener(async (tabId) => {
-    await watchedReady;
-    if (!watchedTabs.has(tabId)) return;
-    const closed = await updateFlows((flows) => {
-      const gone = Object.values(flows).filter((f) => f.tabId === tabId && f.downloadId === undefined);
-      for (const f of gone) delete flows[f.jobId];
-      return gone;
+export default defineBackground({
+  // Firefox's build (Manifest V2) runs transfers in the background page; keep it loaded
+  // so a long one is never cut off. Chrome ignores this (its engine is offscreen).
+  persistent: true,
+  main() {
+    browser.runtime.onInstalled.addListener(async () => {
+      // Start clean so an update or reload never trips over duplicate ids.
+      await browser.contextMenus.removeAll();
+      browser.contextMenus.create({ id: MENU_LINK, title: 'Mirror with EasyMirror', contexts: ['link'] });
+      browser.contextMenus.create({ id: MENU_PAGE, title: 'Mirror the next download on this page', contexts: ['page'] });
     });
-    for (const f of closed) {
-      const job = await patchJob(f.jobId, (j) => {
-        j.status = 'error';
-        j.error = 'The page was closed before a download started.';
+
+    browser.contextMenus.onClicked.addListener(async (info, tab) => {
+      if (info.menuItemId !== MENU_LINK && info.menuItemId !== MENU_PAGE) return;
+      // Reading files from arbitrary sites needs the optional all-sites permission.
+      // A menu click is a user gesture, but only until the first await, so ask first;
+      // when it's already granted this resolves at once without a prompt.
+      const allowed = await browser.permissions.request(ALL_SITES).catch(() => false);
+      if (!allowed) {
+        // Fall back to the popup page, which explains the permission and asks again.
+        const query = info.linkUrl ? `?url=${encodeURIComponent(info.linkUrl)}` : '?tab=1';
+        await browser.tabs.create({ url: browser.runtime.getURL(`/popup.html${query}`) });
+        return;
+      }
+      const { destinations } = await getSettings();
+      if (info.menuItemId === MENU_LINK && info.linkUrl) {
+        await startMirror(info.linkUrl, destinations);
+      } else if (info.menuItemId === MENU_PAGE && tab?.id !== undefined) {
+        const id = await newJob(destinations, (j) => (j.sourceUrl = info.pageUrl ?? tab.url));
+        await watchTab(id, tab.id, info.pageUrl ?? tab.url);
+      }
+    });
+
+    browser.notifications.onClicked.addListener(async (id) => {
+      await browser.notifications.clear(id);
+      if (!id.endsWith(':hint')) await browser.tabs.create({ url: browser.runtime.getURL('/popup.html?tab=1') });
+    });
+
+    browser.tabs.onRemoved.addListener(async (tabId) => {
+      await watchedReady;
+      if (!watchedTabs.has(tabId)) return;
+      const closed = await updateFlows((flows) => {
+        const gone = Object.values(flows).filter((f) => f.tabId === tabId && f.downloadId === undefined);
+        for (const f of gone) delete flows[f.jobId];
+        return gone;
       });
-      await maybeFinish(job);
-    }
-  });
-
-  browser.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
-    const reply = (p: Promise<unknown>) => {
-      p.then(sendResponse, (e) => sendResponse({ ok: false, error: String(e) }));
-      return true;
-    };
-    if (msg?.target === 'background') return reply(handleEngineEvent(msg as EngineEvent));
-    if (msg?.type === 'mirror') return reply(startMirror(msg.url, msg.destinations).then((id) => ({ ok: true, id })));
-    if (msg?.type === 'watch-tab') {
-      return reply(
-        newJob(msg.destinations, (j) => (j.sourceUrl = msg.pageUrl))
-          .then(async (id) => (await watchTab(id, msg.tabId, msg.pageUrl), id))
-          .then((id) => ({ ok: true, id })),
-      );
-    }
-    if (msg?.type === 'picked') return reply(startPicked(msg.id, msg.info).then(() => ({ ok: true })));
-    if (msg?.type === 'cancel-job') return reply(cancelJob(msg.id).then(() => ({ ok: true })));
-    if (msg?.type === 'jobs-changed') return reply(updateBadge().then(() => ({ ok: true })));
-    // Spike runner hooks (spikes/run-spikes.mjs).
-    if (msg?.type === 'start-transfer') {
-      const job = msg.job as TransferJob;
-      return reply(
-        patchJob(job.id, (j) => {
-          j.status = 'queued';
-          for (const u of job.uploads ?? []) j.uploads[u.label] = { sent: 0, done: false };
-        })
-          .then(() => startTransfer(job))
-          .then(() => ({ ok: true })),
-      );
-    }
-    if (msg?.type === 'start-pageflow') {
-      return reply(openPageFlow(msg.jobId, msg.pageUrl, { name: msg.name, uploads: msg.uploads }).then(() => ({ ok: true })));
-    }
-  });
-
-  // Non-blocking webRequest is allowed in MV3 and still exposes form bodies.
-  browser.webRequest.onBeforeRequest.addListener(
-    (details): undefined => {
-      if (details.tabId < 0) return;
-      void watchedReady.then(() => {
-        if (!watchedTabs.has(details.tabId)) return;
-        return updateFlows((flows) => {
-          const flow = Object.values(flows).find((f) => f.tabId === details.tabId && f.downloadId === undefined);
-          if (!flow) return;
-          flow.requests[details.url] = {
-            method: details.method as FetchSpec['method'],
-            form: details.requestBody?.formData as FetchSpec['form'],
-          };
-          const origin = originOf(details.url);
-          if (details.type === 'main_frame' && origin && !flow.pageOrigins.includes(origin)) flow.pageOrigins.push(origin);
+      for (const f of closed) {
+        const job = await patchJob(f.jobId, (j) => {
+          j.status = 'error';
+          j.error = 'The page was closed before a download started.';
         });
-      });
-    },
-    { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame', 'other'] },
-    ['requestBody'],
-  );
+        await maybeFinish(job);
+      }
+    });
 
-  browser.downloads.onCreated.addListener((item) => void onDownloadCreated(item));
+    browser.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
+      const reply = (p: Promise<unknown>) => {
+        p.then(sendResponse, (e) => sendResponse({ ok: false, error: String(e) }));
+        return true;
+      };
+      if (msg?.target === 'background') return reply(handleEngineEvent(msg as EngineEvent));
+      if (msg?.type === 'mirror') return reply(startMirror(msg.url, msg.destinations).then((id) => ({ ok: true, id })));
+      if (msg?.type === 'watch-tab') {
+        return reply(
+          newJob(msg.destinations, (j) => (j.sourceUrl = msg.pageUrl))
+            .then(async (id) => (await watchTab(id, msg.tabId, msg.pageUrl), id))
+            .then((id) => ({ ok: true, id })),
+        );
+      }
+      if (msg?.type === 'picked') return reply(startPicked(msg.id, msg.info).then(() => ({ ok: true })));
+      if (msg?.type === 'cancel-job') return reply(cancelJob(msg.id).then(() => ({ ok: true })));
+      if (msg?.type === 'jobs-changed') return reply(updateBadge().then(() => ({ ok: true })));
+      // Spike runner hooks (spikes/run-spikes.mjs).
+      if (msg?.type === 'start-transfer') {
+        const job = msg.job as TransferJob;
+        return reply(
+          patchJob(job.id, (j) => {
+            j.status = 'queued';
+            for (const u of job.uploads ?? []) j.uploads[u.label] = { sent: 0, done: false };
+          })
+            .then(() => startTransfer(job))
+            .then(() => ({ ok: true })),
+        );
+      }
+      if (msg?.type === 'start-pageflow') {
+        return reply(openPageFlow(msg.jobId, msg.pageUrl, { name: msg.name, uploads: msg.uploads }).then(() => ({ ok: true })));
+      }
+    });
+
+    // Non-blocking webRequest is allowed in MV3 and still exposes form bodies.
+    browser.webRequest.onBeforeRequest.addListener(
+      (details): undefined => {
+        if (details.tabId < 0) return;
+        void watchedReady.then(() => {
+          if (!watchedTabs.has(details.tabId)) return;
+          return updateFlows((flows) => {
+            const flow = Object.values(flows).find((f) => f.tabId === details.tabId && f.downloadId === undefined);
+            if (!flow) return;
+            flow.requests[details.url] = {
+              method: details.method as FetchSpec['method'],
+              form: details.requestBody?.formData as FetchSpec['form'],
+            };
+            const origin = originOf(details.url);
+            if (details.type === 'main_frame' && origin && !flow.pageOrigins.includes(origin)) flow.pageOrigins.push(origin);
+          });
+        });
+      },
+      { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame', 'other'] },
+      ['requestBody'],
+    );
+
+    browser.downloads.onCreated.addListener((item) => void onDownloadCreated(item));
+  },
 });
