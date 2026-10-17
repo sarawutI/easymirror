@@ -11,7 +11,7 @@
 const TEST = import.meta.env.MODE === 'spike';
 
 export const FEEDBACK_FORM = TEST ? 'http://127.0.0.1:8787/mock/form?details={details}' : 'https://tally.so/r/J1KeWJ?details={details}';
-export const DONATE = TEST ? 'http://127.0.0.1:8787/mock/donate' : '';
+export const DONATE = TEST ? 'http://127.0.0.1:8787/mock/donate' : 'https://ko-fi.com/sarawut96007';
 
 /** Form URLs get long; browsers and form sites cope with a few thousand characters. */
 const MAX_DETAILS_IN_URL = 1800;

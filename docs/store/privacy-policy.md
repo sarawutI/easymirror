@@ -1,7 +1,6 @@
 <!--
 DRAFT. Before publishing, replace every [BRACKETED] placeholder and host this page
 at a public URL (e.g. GitHub Pages). The stores link to that URL.
-Remove the "Donations" section if src/links.ts has no DONATE link at release.
 Keep it in sync with the code: if a version adds analytics, a server, or Google
 Drive / Yandex.Disk sign-in (src/features.ts), this policy must be updated first.
 Google sign-in in particular requires a "Limited Use" statement for Google user data.
@@ -51,7 +50,7 @@ What you submit is stored by Tally under its privacy policy (https://tally.so/he
 
 ## Donations
 
-The "Support EasyMirror" link opens [DONATION SITE] in a new tab. EasyMirror sends it no data. If you donate, that site's own privacy policy applies.
+The "Support EasyMirror" link opens the developer's Ko-fi page (https://ko-fi.com/sarawut96007) in a new tab. EasyMirror sends Ko-fi no data. If you donate, Ko-fi's privacy policy applies: https://more.ko-fi.com/privacy
 
 ## Watching a page for a download
 
