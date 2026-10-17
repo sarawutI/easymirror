@@ -2,7 +2,7 @@
 
 Browser extension that mirrors a file from a link to your own storage hosts: paste a link (or right-click one), pick destinations, get share links back.
 
-Status: direct file links **and download pages** (e.g. `gofile.io/d/…`) to GoFile, Catbox and Pixeldrain. Pixeldrain needs the user's API key (Settings page). See [docs/plan.md](docs/plan.md) for what's next.
+Status: direct file links **and download pages** (e.g. `gofile.io/d/…`) to 9 hosts: GoFile, Catbox, Buzzheavier and VikingFile with no account; Pixeldrain, Clicknupload, Send.now, Daily Uploads and HexUpload with the user's API key (Settings page). Krakenfiles is built but switched off until a real upload works (`KRAKENFILES_ENABLED` in [src/features.ts](src/features.ts)). See [docs/plan.md](docs/plan.md) for what's next.
 
 Google Drive and Yandex.Disk support is built and tested but **switched off** in release builds (`OAUTH_HOSTS_ENABLED` in [src/features.ts](src/features.ts)). They need a one-time app registration with Google and Yandex first: [docs/account-setup.md](docs/account-setup.md). Test builds always include them.
 
@@ -30,7 +30,7 @@ If a site's link only works once, or the page builds the file itself, your brows
 |---|---|
 | `npm run dev` | Dev build with hot reload, opens a browser with the extension loaded |
 | `npm test` | Unit tests (Vitest) |
-| `npm run test:e2e` | Builds the test variant and drives the real popup against mock GoFile/Catbox (Playwright) |
+| `npm run test:e2e` | Builds the test variant and drives the real popup against mock hosts (Playwright) |
 | `npm run build:spike && npm run spike:run` | M0 checks: large files, service-worker stop, page flow |
 | `npm run icons` | Redraws the toolbar icons |
 

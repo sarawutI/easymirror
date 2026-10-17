@@ -131,13 +131,13 @@ async function captureExtension() {
     await show([JOBS.uploading]);
     shots.popupUploading = await popupShot();
 
-    await page.setViewportSize({ width: 620, height: 560 });
+    await page.setViewportSize({ width: 620, height: 900 });
     await page.goto(`chrome-extension://${id}/options.html`);
     await page.waitForSelector('#host-pixeldrain .state');
     await page.waitForTimeout(300);
-    // Cut below the host cards, so the footer links aren't sliced in half.
-    const settingsHeight = await page.evaluate(() => Math.ceil(document.getElementById('hosts').getBoundingClientRect().bottom + 24));
-    shots.settings = await page.screenshot({ clip: { x: 0, y: 0, width: 620, height: Math.min(560, settingsHeight) } });
+    // Cut right below the Pixeldrain card (connected in the sample data), so no card is sliced in half.
+    const settingsHeight = await page.evaluate(() => Math.ceil(document.getElementById('host-pixeldrain').getBoundingClientRect().bottom + 10));
+    shots.settings = await page.screenshot({ clip: { x: 0, y: 0, width: 620, height: settingsHeight } });
   } finally {
     await ctx.close();
     rmSync(profile, { recursive: true, force: true });
@@ -249,7 +249,7 @@ async function compose(shots) {
       file: '4-your-accounts.png',
       title: 'Your accounts stay yours',
       sub: 'No server, no tracking. Keys are stored only in your browser and sent only to the host they belong to.',
-      visual: `<img class="shot" src="${dataUrl(shots.settings)}" style="width:560px">`,
+      visual: `<img class="shot" src="${dataUrl(shots.settings)}" style="width:560px; max-height:720px; object-fit:contain; object-position:top">`,
     },
   ];
   for (const s of slides) {

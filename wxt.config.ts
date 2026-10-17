@@ -1,5 +1,5 @@
 import { defineConfig } from 'wxt';
-import { oauthHostsEnabled } from './src/features';
+import { krakenfilesEnabled, oauthHostsEnabled } from './src/features';
 
 // Pins the extension ID (naicmlgekdnneapgfjkgialddpojebgd) for unpacked builds, so
 // the Google/Yandex sign-in redirect URL stays the same. See scripts/make-extension-key.mjs.
@@ -31,7 +31,17 @@ export default defineConfig({
       host_permissions: [
         'https://*.gofile.io/*',
         'https://catbox.moe/*',
+        'https://*.buzzheavier.com/*',
+        'https://*.vikingfile.com/*',
+        // Krakenfiles' site, and the domain of its upload servers.
+        ...(krakenfilesEnabled(mode) ? ['https://*.krakenfiles.com/*', 'https://*.krakencloud.net/*'] : []),
         'https://pixeldrain.com/*',
+        // XFileSharing hosts. Their upload servers are on other, changing domains,
+        // which the all-sites permission below covers (every mirror asks for it first).
+        'https://*.clicknupload.click/*',
+        'https://*.send.now/*',
+        'https://*.dailyuploads.net/*',
+        'https://*.hexload.com/*',
         ...(oauth ? OAUTH_HOST_PERMISSIONS : []),
         // The spike build talks to the local test server in spikes/server.mjs and
         // gets every site up front, so tests never hit a permission prompt.

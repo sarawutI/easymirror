@@ -102,6 +102,12 @@ fieldset {
   border: 0;
 }
 
+.dest-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 12px;
+}
+
 .dest {
   display: flex;
   align-items: flex-start;
@@ -121,12 +127,10 @@ fieldset {
   font-size: 12px;
 }
 
-.dest.unavailable {
-  cursor: default;
-}
-
-.dest.unavailable > span {
+.dest-more {
+  margin: 6px 0 0;
   color: var(--muted);
+  font-size: 12px;
 }
 
 .inline-link {

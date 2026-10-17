@@ -9,6 +9,8 @@
 //   GET  /page.html, /missing             a web page and a 404, for error handling
 //   POST /mock/gofile/uploadfile         GoFile upload API stand-in
 //   POST /mock/catbox/api.php            Catbox API stand-in (rejects names containing "reject")
+//   /mock/buzzheavier, /mock/vikingfile, /mock/krakenfiles (+ /_uploader/gallery/upload)
+//   /mock/xfs/<site>/...                 XFileSharing API stand-in (key "test-key")
 import { createServer } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import Busboy from 'busboy';
@@ -76,7 +78,7 @@ function receiveMultipart(req, fileField, done) {
 // Accepted credentials: Pixeldrain key "test-key", Google/Yandex token "test-token".
 const json = (res, status, body, headers = {}) =>
   res.writeHead(status, { 'Content-Type': 'application/json', ...headers }).end(JSON.stringify(body));
-const hosts = { driveShared: [], driveFolders: [], yandexFiles: new Set(), yandexPublished: [] };
+const hosts = { driveShared: [], driveFolders: [], yandexFiles: new Set(), yandexPublished: [], xfsUploads: [] };
 
 /** Hashes a raw request body into received[key]; then calls done(). */
 function receiveRaw(req, key, done) {
@@ -99,6 +101,66 @@ function mockPixeldrain(req, res, p) {
     return receiveRaw(req, `pixeldrain:${name}`, () => json(res, 201, { success: true, id: randomBytes(4).toString('hex'), name }));
   }
   json(res, 404, { success: false, value: 'not_found' });
+}
+
+// --- No-account hosts: Buzzheavier, VikingFile, Krakenfiles --------------------
+// File names containing "reject" are refused, to test error messages.
+
+function mockNoAccountHosts(req, res, p) {
+  const base = `http://127.0.0.1:${PORT}`;
+  if (req.method === 'PUT' && p.startsWith('/mock/buzzheavier/')) {
+    const name = decodeURIComponent(p.slice('/mock/buzzheavier/'.length));
+    if (name.includes('reject')) return req.resume().on('end', () => json(res, 400, { error: 'file rejected' }));
+    return receiveRaw(req, `buzzheavier:${name}`, () => json(res, 201, { code: 201, data: { id: randomBytes(6).toString('hex') } }));
+  }
+  if (req.method === 'GET' && p === '/mock/vikingfile/api/get-server') return json(res, 200, { server: `${base}/mock/vikingfile/upload` });
+  if (req.method === 'POST' && p === '/mock/vikingfile/upload') {
+    return receiveMultipart(req, 'file', (file, fields) => {
+      if (fields.user !== '') return json(res, 400, { error: 'user field missing' });
+      received[`vikingfile:${file.filename}`] = file;
+      const hash = randomBytes(5).toString('hex');
+      json(res, 200, { name: file.filename, size: file.bytes, hash, url: `https://vikingfile.com/f/${hash}` });
+    });
+  }
+  if (req.method === 'GET' && p === '/mock/krakenfiles/api/server/available') {
+    return json(res, 200, { status: 200, data: { url: `${base}/mock/kraken-node/api/file`, serverAccessToken: 'node-token' } });
+  }
+  if (req.method === 'POST' && p === '/_uploader/gallery/upload') {
+    return receiveMultipart(req, 'files[]', (file) => {
+      if (file.filename.includes('reject')) return json(res, 200, { files: [{ name: file.filename, error: 'File type not allowed' }] });
+      received[`krakenfiles:${file.filename}`] = file;
+      const code = randomBytes(5).toString('hex');
+      json(res, 200, { files: [{ name: file.filename, size: file.bytes, url: `/view/${code}/file.html` }] });
+    });
+  }
+  json(res, 404, { error: 'not found' });
+}
+
+// --- XFileSharing hosts (Clicknupload, Send.now, Daily Uploads, HexUpload) ------
+// /mock/xfs/<site hostname>/api/..., accepted key "test-key".
+
+function mockXfs(req, res, p, url) {
+  const [, , , site, ...rest] = p.split('/'); // '', 'mock', 'xfs', site, ...
+  const path = `/${rest.join('/')}`;
+  const ok = url.searchParams.get('key') === 'test-key';
+  const fail = () => json(res, 200, { status: 400, msg: 'Invalid key', server_time: '2026-10-17 00:00:00' });
+  if (req.method === 'GET' && path === '/api/account/info') {
+    if (!ok) return fail();
+    return json(res, 200, { status: 200, msg: 'OK', result: { login: 'tester', email: 'tester@example.com', premium_expire: null } });
+  }
+  if (req.method === 'GET' && path === '/api/upload/server') {
+    if (!ok) return fail();
+    return json(res, 200, { status: 200, msg: 'OK', sess_id: `sess-${site}`, result: `http://127.0.0.1:${PORT}/mock/xfs/${site}/cgi-bin/upload.cgi` });
+  }
+  if (req.method === 'POST' && path === '/cgi-bin/upload.cgi') {
+    return receiveMultipart(req, 'file_0', (file, fields) => {
+      hosts.xfsUploads.push({ site, sess_id: fields.sess_id, utype: fields.utype });
+      if (fields.sess_id !== `sess-${site}`) return json(res, 200, [{ file_code: '', file_status: 'session expired' }]);
+      received[`${site}:${file.filename}`] = file;
+      json(res, 200, [{ file_code: randomBytes(6).toString('hex'), file_status: 'OK' }]);
+    });
+  }
+  json(res, 404, { status: 404, msg: 'not found' });
 }
 
 function mockGoogle(req, res, p, url) {
@@ -252,6 +314,10 @@ createServer((req, res) => {
     return res.writeHead(200, { 'Content-Type': 'text/html' }).end(`<!doctype html><title>${p.slice(6)}</title><p>${p.slice(6)} page`);
   }
   if (p.startsWith('/mock/pixeldrain/')) return mockPixeldrain(req, res, p, url);
+  if (/^\/mock\/(buzzheavier|vikingfile|krakenfiles)\//.test(p) || p === '/_uploader/gallery/upload') {
+    return mockNoAccountHosts(req, res, p);
+  }
+  if (p.startsWith('/mock/xfs/')) return mockXfs(req, res, p, url);
   if (p.startsWith('/mock/google/')) return mockGoogle(req, res, p, url);
   if (p.startsWith('/mock/yandex/')) return mockYandex(req, res, p, url);
 

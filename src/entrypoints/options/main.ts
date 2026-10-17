@@ -1,12 +1,13 @@
 import { redirectUrl, signIn, type OAuthProvider } from '@/accounts/oauth';
 import { googleProvider, yandexProvider } from '@/accounts/providers';
 import { clearAccount, getAccount, setAccount, type AccountId } from '@/accounts/store';
-import { oauthHostsEnabled } from '@/features';
+import { krakenfilesEnabled, oauthHostsEnabled } from '@/features';
 import { DONATE } from '@/links';
 import { USERHASH_KEY } from '@/hosts/catbox';
 import { TOKEN_KEY as GOFILE_TOKEN_KEY, TOKEN_KIND_KEY as GOFILE_KIND_KEY } from '@/hosts/gofile';
 import { googleAccountLabel, SHARE_KEY } from '@/hosts/googledrive';
 import { verifyPixeldrainKey } from '@/hosts/pixeldrain';
+import { verifyXfsKey, XFS_SITES, type XfsSite } from '@/hosts/xfilesharing';
 import { yandexAccountLabel } from '@/hosts/yandex';
 
 const hostsBox = document.getElementById('hosts')!;
@@ -151,6 +152,54 @@ async function pixeldrainCard() {
   );
 }
 
+/** Hosts with nothing to configure, in one card. */
+function noSetupCard() {
+  const kraken = krakenfilesEnabled(import.meta.env.MODE);
+  return card(
+    'nosetup',
+    kraken ? 'Buzzheavier, VikingFile, Krakenfiles' : 'Buzzheavier, VikingFile',
+    { text: 'No account needed' },
+    h('p', {
+      className: 'hint',
+      textContent: `These work straight away, with nothing to set up.${kraken ? ' Krakenfiles takes files up to 1 GB.' : ''}`,
+    }),
+    h('p', {
+      className: 'hint',
+      textContent: "Files uploaded without an account may be deleted after a while, following each site's own rules.",
+    }),
+  );
+}
+
+async function xfsCard(site: XfsSite) {
+  const account = await getAccount(site.id);
+  const status = statusLine();
+  const domain = new URL(site.site).hostname;
+  return card(
+    site.id,
+    site.label,
+    account ? { text: `Connected as ${account.label}`, ok: true } : { text: 'Not connected' },
+    h(
+      'p',
+      { className: 'hint' },
+      `${site.label} needs a free account and its API key. Sign in at `,
+      h('a', { href: site.site, target: '_blank', rel: 'noopener', textContent: domain }),
+      ', copy the API key from your account settings, and paste it here.',
+    ),
+    secretRow({
+      label: `${site.label} API key`,
+      placeholder: account ? 'Replace API key' : `${site.label} API key`,
+      saved: !!account,
+      status,
+      onSave: async (key) => {
+        const name = await verifyXfsKey(site, key);
+        await setAccount(site.id, { secret: key, label: name });
+      },
+      onRemove: () => clearAccount(site.id),
+    }),
+    status,
+  );
+}
+
 async function oauthCard(opts: {
   id: string;
   title: string;
@@ -245,7 +294,9 @@ async function render() {
   const cards = await Promise.all([
     gofileCard(),
     catboxCard(),
+    noSetupCard(),
     pixeldrainCard(),
+    ...XFS_SITES.map(xfsCard),
     ...(OAUTH ? [googleCard(), yandexCard()] : []),
   ]);
   hostsBox.replaceChildren(...cards);

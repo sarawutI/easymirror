@@ -1,9 +1,24 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
+import { buzzheavier } from './buzzheavier';
 import { catbox } from './catbox';
 import { gofile } from './gofile';
+import { krakenfiles } from './krakenfiles';
 import { pixeldrain } from './pixeldrain';
+import { vikingfile } from './vikingfile';
+import { verifyXfsKey, XFS_SITES, xfsDestination } from './xfilesharing';
 import { numberedName } from './yandex';
+
+/** Answers fetch() calls by URL substring, in the order given. */
+function stubFetch(routes: Record<string, unknown>) {
+  const fetchMock = vi.fn(async (url: string) => {
+    const hit = Object.entries(routes).find(([part]) => url.includes(part));
+    if (!hit) return new Response('not found', { status: 404 });
+    return new Response(JSON.stringify(hit[1]), { status: 200 });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
 
 const MB = 1024 * 1024;
 
@@ -103,6 +118,128 @@ describe('pixeldrain', () => {
     await expect(err('file_too_large', 413)).rejects.toThrow('Too big for your Pixeldrain plan');
     await expect(err('email_address_not_verified', 403)).rejects.toThrow(/Verify your email/);
     await expect(err('something_new')).rejects.toThrow(/something_new/);
+  });
+});
+
+describe('buzzheavier', () => {
+  it('PUTs the file under its name', async () => {
+    const spec = await buzzheavier.buildUpload({ name: 'my file.zip' });
+    expect(spec).toMatchObject({ kind: 'put' });
+    expect(spec.url).toMatch(/\/my%20file\.zip$/);
+  });
+
+  it('builds the share link from the id', async () => {
+    await expect(buzzheavier.parseResponse(201, JSON.stringify({ code: 201, data: { id: 'x1y2' } }))).resolves.toBe(
+      'https://buzzheavier.com/x1y2',
+    );
+  });
+
+  it('turns errors into readable messages', async () => {
+    await expect(buzzheavier.parseResponse(400, JSON.stringify({ error: 'bad name' }))).rejects.toThrow(/refused the upload \(bad name\)/);
+    await expect(buzzheavier.parseResponse(502, '<html>')).rejects.toThrow(/unexpected answer \(HTTP 502\)/);
+  });
+});
+
+describe('vikingfile', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('uploads anonymously to the server it is given', async () => {
+    stubFetch({ '/get-server': { server: 'https://cd.vikingfile.com/index.php' } });
+    const spec = await vikingfile.buildUpload({ name: 'a.bin' });
+    expect(spec).toMatchObject({ kind: 'multipart', url: 'https://cd.vikingfile.com/index.php', field: 'file', fields: { user: '' } });
+  });
+
+  it('explains when no upload server is available', async () => {
+    stubFetch({});
+    await expect(vikingfile.buildUpload({ name: 'a.bin' })).rejects.toThrow(/no upload server available/);
+  });
+
+  it('returns the link from the answer', async () => {
+    const body = JSON.stringify({ name: 'a.bin', size: 1, hash: 'TPRS', url: 'https://vikingfile.com/f/TPRS' });
+    await expect(vikingfile.parseResponse(200, body)).resolves.toBe('https://vikingfile.com/f/TPRS');
+  });
+});
+
+describe('krakenfiles', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('caps files at 1 GB', () => {
+    expect(krakenfiles.check({ name: 'a.bin', size: 1024 * MB })).toBeUndefined();
+    expect(krakenfiles.check({ name: 'a.bin', size: 1025 * MB })).toMatch(/up to 1 GB/);
+  });
+
+  it("uploads to the node's web uploader", async () => {
+    stubFetch({ '/server/available': { status: 200, data: { url: 'https://hs12.krakencloud.net/api/file', serverAccessToken: 't' } } });
+    const spec = await krakenfiles.buildUpload({ name: 'a.bin' });
+    expect(spec).toMatchObject({ kind: 'multipart', url: 'https://hs12.krakencloud.net/_uploader/gallery/upload', field: 'files[]' });
+  });
+
+  it('turns the relative link into a full one, and reports per-file errors', async () => {
+    const ok = JSON.stringify({ files: [{ url: '/view/abc/file.html' }] });
+    await expect(krakenfiles.parseResponse(200, ok)).resolves.toBe('https://krakenfiles.com/view/abc/file.html');
+    const bad = JSON.stringify({ files: [{ error: 'File type not allowed' }] });
+    await expect(krakenfiles.parseResponse(200, bad)).rejects.toThrow(/File type not allowed/);
+  });
+});
+
+describe('XFileSharing hosts', () => {
+  const site = XFS_SITES.find((s) => s.id === 'clicknupload')!;
+  const dest = xfsDestination(site);
+  beforeEach(() => fakeBrowser.reset());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('covers Clicknupload, Send.now, Daily Uploads and HexUpload', () => {
+    expect(XFS_SITES.map((s) => s.label)).toEqual(['Clicknupload', 'Send.now', 'Daily Uploads', 'HexUpload']);
+  });
+
+  it('asks for the API key when none is saved', async () => {
+    await expect(dest.buildUpload({ name: 'a.bin' })).rejects.toThrow(/Add your Clicknupload API key/);
+  });
+
+  it('opens an upload session with the key and sends the file as file_0', async () => {
+    await browser.storage.local.set({ 'accounts.clicknupload': { secret: 'k3y' } });
+    const fetchMock = stubFetch({
+      '/upload/server': { status: 200, sess_id: 'S1', result: 'https://s1.clicknupload.net/cgi-bin/upload.cgi' },
+      '/account/info': { status: 200, result: { email: 'me@example.com', premium_expire: null } },
+    });
+    const spec = await dest.buildUpload({ name: 'a.bin' });
+    expect(spec).toMatchObject({
+      kind: 'multipart',
+      url: 'https://s1.clicknupload.net/cgi-bin/upload.cgi',
+      field: 'file_0',
+      fields: { sess_id: 'S1', utype: 'reg' },
+    });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain('https://clicknupload.click/api/upload/server?key=k3y');
+  });
+
+  it('uploads as premium while the account has premium', async () => {
+    await browser.storage.local.set({ 'accounts.clicknupload': { secret: 'k3y' } });
+    stubFetch({
+      '/upload/server': { status: 200, sess_id: 'S1', result: 'https://s1.example/upload.cgi' },
+      '/account/info': { status: 200, result: { premium_expire: '2099-01-01 00:00:00' } },
+    });
+    expect((await dest.buildUpload({ name: 'a.bin' })).fields?.utype).toBe('prem');
+  });
+
+  it('explains a rejected key, on upload and in settings', async () => {
+    await browser.storage.local.set({ 'accounts.clicknupload': { secret: 'old' } });
+    stubFetch({ '/api/': { status: 400, msg: 'Invalid key' } });
+    await expect(dest.buildUpload({ name: 'a.bin' })).rejects.toThrow('Clicknupload rejected your API key. Update it in EasyMirror settings.');
+    await expect(verifyXfsKey(site, 'old')).rejects.toThrow(/doesn't work\. Copy it again from your Clicknupload account page/);
+  });
+
+  it('names the account from its login or email', async () => {
+    stubFetch({ '/account/info': { status: 200, result: { email: 'me@example.com' } } });
+    await expect(verifyXfsKey(site, 'k')).resolves.toBe('me@example.com');
+  });
+
+  it('builds the share link from the file code', async () => {
+    await expect(dest.parseResponse(200, JSON.stringify([{ file_code: 'b578rni0e1ka', file_status: 'OK' }]))).resolves.toBe(
+      'https://clicknupload.click/b578rni0e1ka',
+    );
+    await expect(dest.parseResponse(200, JSON.stringify([{ file_code: '', file_status: 'not allowed extension' }]))).rejects.toThrow(
+      /refused the upload \(not allowed extension\)/,
+    );
   });
 });
 

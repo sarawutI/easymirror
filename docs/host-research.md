@@ -50,6 +50,23 @@ Legend
 - Whether HexUpload → hexload.com is the same service.
 - Krakenfiles, Send.cm, Clicknupload, Daily Uploads: whether they're up at all.
 
+## Update 2026-10-17: more destinations
+
+Checked the API endpoints live (read-only requests, no uploads). Upload formats confirmed against the hosts' docs where reachable, otherwise against [PolyUploader](https://github.com/spel987/PolyUploader) (GPL-3.0, used as a reference only, no code copied). Size and retention figures marked † are from PolyUploader's notes, not the hosts.
+
+| Host | Decision | Upload | Account | Notes |
+|---|---|---|---|---|
+| **Buzzheavier** (new) | Added. Real upload worked 2026-10-17 | `PUT https://w.buzzheavier.com/{name}` → `data.id`, link `buzzheavier.com/{id}` | None (optional token not used yet) | No size limit †, kept ~45 days † |
+| **VikingFile** (new) | Added. Real upload worked 2026-10-17 | `GET /api/get-server`, then POST `file` + `user=""` to that server → `url` | None (optional user hash not used yet) | ~10 GB †, ~15 days † |
+| **Krakenfiles** | Built, switched off (`KRAKENFILES_ENABLED`). On 2026-10-17 all 11 upload servers we tried (hs1–hs15.krakencloud.net) refused connections from our network, and the home page said "Sorry, service unavailable". Retry, then turn on | `GET /api/server/available`, then POST `files[]` to the node's `/_uploader/gallery/upload` → `files[0].url` (site-relative) | None. The account API (`X-AUTH-TOKEN`) is not used yet | 1 GB (krakenfiles.com home page). The anonymous uploader is the website's, not a documented API, so it may change |
+| **Clicknupload, Send.now (was Send.cm), Daily Uploads, HexUpload (hexload.com)** | Added, one shared adapter. Needs a real-account test | XFileSharing API: `GET /api/upload/server?key=` → `sess_id` + upload URL; POST `sess_id`, `utype`, `file_0` → `[{file_code}]`, link `{site}/{file_code}`. All four answered `/api/account/info` with "Invalid key" for a fake key | User's own API key | Upload servers are on other, changing domains (covered by the all-sites permission) |
+| **Mixdrop** | Later | `POST ul.mixdrop.ag/api` with email + key | Required | Video host; may refuse other files |
+| **Bunkr** | Later | Token + `/api/node`, then chunked Dropzone-style upload and `/api/upload/finishchunks` | Required | Needs chunked uploads in the engine |
+| **FileDitch** | Skip | Site redesigned (new.fileditch.com), no documented upload | — | |
+| **MEGA, 1Fichier, Mail.ru, MediaFire, SendSpace** | Skip | See the table above | | |
+
+Temporary hosts (Litterbox, Uguu, tmpfiles, temp.sh) were left out: files vanish within hours or days, which doesn't suit mirroring.
+
 ## Sources
 - rclone backend list: https://rclone.org/overview/
 - Pixeldrain API: https://pixeldrain.com/api

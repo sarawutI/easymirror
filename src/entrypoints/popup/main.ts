@@ -58,22 +58,31 @@ function settingsLink(text: string) {
 async function renderDestinations() {
   const { destinations: chosen } = await getSettings();
   const connected = await Promise.all(destinations.map((d) => d.connected()));
+  const ready = destinations.filter((_, i) => connected[i]);
+  // Hosts that need the user's account are only named, in one line, until it's connected.
+  const waiting = destinations.filter((_, i) => !connected[i]);
+  const more =
+    waiting.length > 0 &&
+    h(
+      'p',
+      { className: 'dest-more' },
+      `With your own account: ${waiting.map((d) => d.label).join(', ')} · `,
+      settingsLink('Set up in Settings'),
+    );
   destBox.replaceChildren(
-    ...destinations.map((d, i) => {
-      const ready = connected[i];
-      // Hosts that need the user's account stay off until it's connected.
-      return h(
-        'label',
-        { className: `dest${ready ? '' : ' unavailable'}` },
-        h('input', { type: 'checkbox', value: d.id, checked: ready && chosen.includes(d.id), disabled: !ready }),
+    h(
+      'div',
+      { className: 'dest-grid' },
+      ...ready.map((d) =>
         h(
-          'span',
-          {},
-          d.label,
-          h('span', { className: 'dest-note' }, ready ? d.note : 'Needs your account · ', !ready && settingsLink('Set up in Settings')),
+          'label',
+          { className: 'dest' },
+          h('input', { type: 'checkbox', value: d.id, checked: chosen.includes(d.id) }),
+          h('span', {}, d.label, h('span', { className: 'dest-note' }, d.note)),
         ),
-      );
-    }),
+      ),
+    ),
+    ...(more ? [more] : []),
   );
 }
 

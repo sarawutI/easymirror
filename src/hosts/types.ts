@@ -1,6 +1,18 @@
 import type { FileInfo, UploadSpec } from '@/engine/types';
 
-export type DestinationId = 'gofile' | 'catbox' | 'pixeldrain' | 'googledrive' | 'yandex';
+export type DestinationId =
+  | 'gofile'
+  | 'catbox'
+  | 'buzzheavier'
+  | 'vikingfile'
+  | 'krakenfiles'
+  | 'pixeldrain'
+  | 'clicknupload'
+  | 'sendnow'
+  | 'dailyuploads'
+  | 'hexupload'
+  | 'googledrive'
+  | 'yandex';
 
 export interface Destination {
   id: DestinationId;

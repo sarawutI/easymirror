@@ -19,7 +19,7 @@ EasyMirror is a browser extension that copies a file from a link to file-hosting
 EasyMirror keeps the following in your browser's extension storage, on your device only:
 
 - **Your settings:** which hosting services you last chose.
-- **Keys and tokens you add:** a Pixeldrain API key, a GoFile account token and a Catbox userhash, if you add them in Settings. If you use GoFile without your own account, EasyMirror also keeps the token of the anonymous GoFile guest account it creates for you.
+- **Keys and tokens you add:** API keys for Pixeldrain, Clicknupload, Send.now, Daily Uploads and HexUpload, a GoFile account token and a Catbox userhash, if you add them in Settings. If you use GoFile without your own account, EasyMirror also keeps the token of the anonymous GoFile guest account it creates for you.
 - **Mirror history:** for each mirror, the source link, file name, size, progress, the new share links and any error messages. It stays until you press "Clear finished" or uninstall the extension.
 - **Temporary file copies:** while a mirror is running, the file is held in the extension's private browser storage so it can be uploaded to several services. It is deleted when that mirror finishes or fails.
 
@@ -30,10 +30,16 @@ This data is not synced to other devices and is not sent to the developer.
 EasyMirror only sends data where it has to, to do what you asked:
 
 1. **The site the file comes from.** EasyMirror downloads the file from the link you give it, the same way your browser would. That includes the cookies your browser already has for that site, since some sites only let signed-in visitors download.
-2. **The hosting services you choose.** EasyMirror uploads the file and its name to each service you select (GoFile, Catbox or Pixeldrain), along with the key or token you added for that service, if any. Each service's own privacy policy and terms apply to files you upload there:
+2. **The hosting services you choose.** EasyMirror uploads the file and its name to each service you select, along with the key or token you added for that service, if any. Each service's own privacy policy and terms apply to files you upload there:
    - GoFile: https://gofile.io/privacy and https://gofile.io/terms
    - Catbox: https://catbox.moe/legal.php
+   - Buzzheavier: https://buzzheavier.com/terms
+   - VikingFile: https://vikingfile.com/terms
    - Pixeldrain: https://docs.pixeldrain.com/questions_and_answers/ and https://docs.pixeldrain.com/content_policy/
+   - Clicknupload: https://clicknupload.click/tos.html
+   - Send.now: https://send.now/terms
+   - Daily Uploads: https://dailyuploads.net/tos.html
+   - HexUpload: https://hexload.com/tos.html
 
 EasyMirror sends nothing anywhere else on its own. It has no analytics, ads or tracking, and it does not sell or share your data with anyone.
 
@@ -72,7 +78,7 @@ EasyMirror does not look at other tabs, and it doesn't touch downloads you start
 | Web requests | Notes the requests of a tab you asked EasyMirror to watch, so it can repeat the download (see above). |
 | Context menus | Adds "Mirror with EasyMirror" to the right-click menu. |
 | Notifications | Tells you when a mirror is finished or needs your attention. |
-| Access to gofile.io, catbox.moe, pixeldrain.com | Uploads files to those services. |
+| Access to the hosting services' sites (gofile.io, catbox.moe, buzzheavier.com, vikingfile.com, pixeldrain.com, clicknupload.click, send.now, dailyuploads.net, hexload.com) | Uploads files to those services and checks the keys you add. |
 | Access to all sites (asked the first time you mirror) | Downloads the file from whichever site your link points to. Only used for links you mirror. |
 
 ## Deleting your data

@@ -1,6 +1,6 @@
 # Store listing drafts
 
-Copy-paste text for the Chrome Web Store, Microsoft Edge Add-ons and Firefox Add-ons forms. Replace `[BRACKETED]` placeholders. These describe the release build: GoFile, Catbox and Pixeldrain, with Google Drive and Yandex.Disk switched off.
+Copy-paste text for the Chrome Web Store, Microsoft Edge Add-ons and Firefox Add-ons forms. Replace `[BRACKETED]` placeholders. These describe the release build: 9 hosts (GoFile, Catbox, Buzzheavier, VikingFile without an account; Pixeldrain, Clicknupload, Send.now, Daily Uploads, HexUpload with the user's API key), with Krakenfiles, Google Drive and Yandex.Disk switched off.
 
 Field rules come from the stores' docs (checked 2026-10-17), but the forms change; check the live form for exact labels and limits.
 
@@ -16,10 +16,10 @@ EasyMirror
 
 ### Short summary
 
-For Chrome's summary (132-character limit) and Firefox's summary (250-character limit). This one is 116 characters:
+For Chrome's summary (132-character limit) and Firefox's summary (250-character limit). This one is 123 characters:
 
 ```
-Copy a file from any link or download page to GoFile, Catbox or Pixeldrain in one click, straight from your browser.
+Copy a file from any link or download page to GoFile, Catbox, Buzzheavier and 6 more hosts in one click, from your browser.
 ```
 
 ### Detailed description
@@ -29,7 +29,7 @@ EasyMirror copies a file from a link to the file-hosting services you choose, an
 
 HOW IT WORKS
 • Paste a link in the popup, or right-click a link and choose "Mirror with EasyMirror".
-• Tick where it should go: GoFile, Catbox and/or Pixeldrain.
+• Tick where it should go: any of 9 file hosts (see ACCOUNTS below).
 • EasyMirror downloads the file once and uploads it to every service you picked at the same time, with progress for each.
 • Copy the new links with one click, or all of them at once.
 
@@ -44,8 +44,8 @@ FEATURES
 • Notification when a mirror is done.
 
 ACCOUNTS
-• GoFile and Catbox work without an account. You can add your own GoFile token or Catbox userhash in Settings.
-• Pixeldrain needs your own API key, added in Settings.
+• No account needed: GoFile, Catbox, Buzzheavier and VikingFile. You can add your own GoFile token or Catbox userhash in Settings.
+• With your own free account and API key, added in Settings: Pixeldrain, Clicknupload, Send.now, Daily Uploads and HexUpload.
 
 PROBLEMS AND FEEDBACK
 Something didn't work? Press "Report this problem" on the failed mirror, or "Report a problem" at the bottom of the popup. You'll see exactly which technical details go with your report before anything is sent, and file names and links are left out unless you choose to include them.
@@ -54,7 +54,7 @@ PRIVACY
 EasyMirror has no server, no analytics and no ads. Your files, links and keys go only to the site the file comes from and the services you choose. Keys and history are stored on your device only. Full policy: https://sarawuti.github.io/easymirror/store/privacy-policy.html
 
 PLEASE NOTE
-Only mirror files you have the right to share, and follow each hosting service's terms. EasyMirror is an independent project and is not affiliated with GoFile, Catbox or Pixeldrain.
+Only mirror files you have the right to share, and follow each hosting service's terms. EasyMirror is an independent project and is not affiliated with any of the hosting services it supports.
 ```
 
 ### Category
@@ -89,8 +89,8 @@ EasyMirror copies a file that the user points it to (a link, or a download the u
 | `webRequest` | Non-blocking, and used only for the tab the user asked EasyMirror to watch. It records that tab's request URLs and submitted form fields, so a download started by a form button can be repeated. Requests in other tabs are ignored, and the recorded data is discarded when the download starts or the tab closes. |
 | `contextMenus` | Adds "Mirror with EasyMirror" to the right-click menu for links, and "Mirror the next download on this page" for pages. |
 | `notifications` | Tells the user when a mirror has finished, failed, or needs them to click a download button or choose a file. |
-| Host permissions: `https://*.gofile.io/*`, `https://catbox.moe/*`, `https://pixeldrain.com/*` | Uploads the user's file to these file-hosting services through their public APIs, when the user selects them as destinations. |
-| Optional host permission: `<all_urls>` | Requested at runtime, the first time the user mirrors something. Needed to download the file from whichever site the user's link points to, including the download servers it redirects to, which can be on any domain. Only used for links and pages the user explicitly mirrors. |
+| Host permissions: `https://*.gofile.io/*`, `https://catbox.moe/*`, `https://*.buzzheavier.com/*`, `https://*.vikingfile.com/*`, `https://pixeldrain.com/*`, `https://*.clicknupload.click/*`, `https://*.send.now/*`, `https://*.dailyuploads.net/*`, `https://*.hexload.com/*` | Uploads the user's file to these file-hosting services through their upload APIs, when the user selects them as destinations, and checks the API keys the user enters in Settings. |
+| Optional host permission: `<all_urls>` | Requested at runtime, the first time the user mirrors something. Needed to download the file from whichever site the user's link points to, including the download servers it redirects to, which can be on any domain. Some hosts (Clicknupload, Send.now, Daily Uploads, HexUpload) also hand out upload servers on changing domains. Only used for links and pages the user explicitly mirrors, and for uploads to hosts the user picked. |
 
 ### Remote code
 
@@ -109,7 +109,7 @@ EasyMirror only sends data to the developer when the user submits a problem repo
 | Personally identifiable information | No | |
 | Health information | No | |
 | Financial and payment information | No | |
-| **Authentication information** | **Yes** | The user's Pixeldrain API key, GoFile token and Catbox userhash are stored locally and sent to that service. |
+| **Authentication information** | **Yes** | The API keys, GoFile token and Catbox userhash the user adds are stored locally and sent only to the service they belong to. |
 | Personal communications | No | |
 | Location | No | |
 | **Web history** | **Yes** (conservative) | Source links stay in local history, except when the user ticks "include file names and links" in a problem report and submits the feedback form. |
@@ -180,7 +180,7 @@ How to test without any account:
 
 Download pages: open a GoFile download page (https://gofile.io/d/...), click the EasyMirror icon, press "Catch the next download on this page", then click GoFile's Download button. EasyMirror takes over that download.
 
-Pixeldrain needs a free Pixeldrain account and API key (Settings page); it's optional.
+Buzzheavier and VikingFile also work without an account. Pixeldrain, Clicknupload, Send.now, Daily Uploads and HexUpload need a free account and API key (Settings page); they're optional.
 
 The extension has no server and no analytics. Optional all-sites access is used only to download the file the user chose to mirror.
 

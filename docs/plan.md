@@ -112,6 +112,8 @@ Plus a **generic direct-URL source**: any link that returns a file directly.
 **M3 — Sources** — page flow pulled forward and done 2026-10-17: paste a download-page link, "catch the next download on this page" (popup button + page right-click), JS-triggered and form downloads, choose-the-file fallback for single-use and blob: downloads, cancel, closed-tab handling. Still to do: host-specific resolvers (skip the page when a host has a public download API) and checks on real hosts.
 - Resolvers for Drive, Yandex, Pixeldrain, Catbox, GoFile, plus the page flow.
 
+**More hosts** — built 2026-10-17 on branch `more-hosts`, tested against mock hosts. Added the easy ones from the list (see the 2026-10-17 update in [host-research.md](host-research.md)): Buzzheavier, VikingFile and Krakenfiles with no account, and Clicknupload, Send.now, Daily Uploads and HexUpload through one shared XFileSharing adapter with the user's API key. Real test upload on 2026-10-17: Buzzheavier and VikingFile work. Krakenfiles is switched off (`KRAKENFILES_ENABLED` in `src/features.ts`) because all its upload servers refused connections; turn it on after a real upload works. The four XFileSharing hosts still need a test with a real account. Later: Bunkr (needs chunked uploads), Mixdrop (video only).
+
 **M4 — Polish**
 - Remote upload shortcut, history, retry button, clear error messages ("Catbox: file too big, 200 MB max"), notifications.
 

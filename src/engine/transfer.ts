@@ -96,7 +96,8 @@ export function upload(
     for (const [k, v] of Object.entries(spec.headers ?? {})) xhr.setRequestHeader(k, v);
     xhr.upload.onprogress = (e) => onProgress(e.loaded);
     xhr.onload = () => resolve({ status: xhr.status, response: xhr.responseText });
-    xhr.onerror = () => reject(new Error('network error during upload'));
+    // XHR gives no detail here: refused connection, dropped connection and blocked request look alike.
+    xhr.onerror = () => reject(new Error(`Couldn't reach the upload server (${new URL(spec.url).host}). The site may be down; try again later.`));
     xhr.onabort = () => reject(new Error('upload aborted'));
     if (spec.kind === 'put') {
       xhr.send(file);

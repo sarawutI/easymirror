@@ -1,9 +1,9 @@
 // Credentials live in storage.local on this device only; nothing is synced or sent
 // anywhere except to the host they belong to.
-export type AccountId = 'pixeldrain' | 'google' | 'yandex';
+export type AccountId = 'pixeldrain' | 'clicknupload' | 'sendnow' | 'dailyuploads' | 'hexupload' | 'google' | 'yandex';
 
 export interface Account {
-  /** API key (Pixeldrain) or OAuth access token (Google, Yandex). */
+  /** API key (Pixeldrain, XFileSharing hosts) or OAuth access token (Google, Yandex). */
   secret: string;
   /** OAuth only: when the access token stops working (ms since epoch). */
   expiresAt?: number;

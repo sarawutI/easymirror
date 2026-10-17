@@ -30,6 +30,7 @@ const results = [];
 let failed = 0;
 
 async function test(name, fn) {
+  const started = Date.now();
   try {
     await fn();
     results.push(`  ✓ ${name}`);
@@ -37,6 +38,8 @@ async function test(name, fn) {
     failed++;
     results.push(`  ✗ ${name}\n      ${String(e.message ?? e).split('\n').join('\n      ')}`);
   }
+  // Live progress; the full summary is printed at the end.
+  console.log(`${results.at(-1).split('\n')[0]} (${((Date.now() - started) / 1000).toFixed(1)}s)`);
 }
 
 try {
@@ -55,12 +58,24 @@ try {
     }
   }
 
+  /** Id of the most recently started job (the popup shows at most 20 cards, so count can't tell). */
+  const newestJobId = () =>
+    popup.evaluate(async () => {
+      const all = await chrome.storage.local.get(null);
+      const jobs = Object.entries(all).filter(([k]) => k.startsWith('job:')).map(([, v]) => v);
+      return jobs.sort((a, b) => b.startedAt - a.startedAt)[0]?.id ?? null;
+    });
+
   async function mirror(link, { destinations = ['gofile', 'catbox'] } = {}) {
     await choose(destinations);
-    const before = await popup.locator('#jobs > .job').count();
+    const before = await newestJobId();
     await popup.fill('#url', link);
     await popup.click('#mirror');
-    await popup.waitForFunction((n) => document.querySelectorAll('#jobs > .job').length > n, before, { timeout: 10_000 });
+    const deadline = Date.now() + 10_000;
+    while ((await newestJobId()) === before) {
+      if (Date.now() > deadline) throw new Error('the mirror did not start');
+      await popup.waitForTimeout(100);
+    }
     const card = popup.locator('#jobs > .job').first();
     await settledCard(['done', 'error']);
     return {
@@ -245,16 +260,77 @@ try {
     await tab.close();
   });
 
-  // --- Accounts (Pixeldrain, Google Drive, Yandex.Disk) -----------------------
+  // --- More no-account hosts (Buzzheavier, VikingFile, Krakenfiles) -------------
+
+  await test('mirrors to Buzzheavier, VikingFile and Krakenfiles with share links', async () => {
+    const r = await mirror(`${BASE}/file/report.pdf?size=${3 * MB}`, { destinations: ['buzzheavier', 'vikingfile', 'krakenfiles'] });
+    assert.equal(r.status, '3 links ready');
+    assert.match(r.uploads.Buzzheavier, /^https:\/\/buzzheavier\.com\/\w+$/);
+    assert.match(r.uploads.VikingFile, /^https:\/\/vikingfile\.com\/f\/\w+$/);
+    assert.match(r.uploads.Krakenfiles, /^https:\/\/krakenfiles\.com\/view\/\w+\/file\.html$/);
+    const s = await stats();
+    const src = s.served['report.pdf'].sha256;
+    for (const host of ['buzzheavier', 'vikingfile', 'krakenfiles']) assert.equal(s.received[`${host}:report.pdf`].sha256, src, host);
+  });
+
+  await test('a refused upload shows that host’s own reason', async () => {
+    const r = await mirror(`${BASE}/file/reject-me.bin?size=1000`, { destinations: ['buzzheavier', 'krakenfiles', 'vikingfile'] });
+    assert.equal(r.status, '1 of 3 links ready');
+    assert.match(r.uploads.Buzzheavier, /Buzzheavier refused the upload \(file rejected\)/);
+    assert.match(r.uploads.Krakenfiles, /Krakenfiles refused the upload \(File type not allowed\)/);
+  });
+
+  // --- Accounts (Pixeldrain, XFileSharing hosts, Google Drive, Yandex.Disk) ------
 
   const setStorage = (items) => popup.evaluate((items) => chrome.storage.local.set(items), items);
   const HOUR = 3600_000;
 
-  await test('hosts that need an account are off until connected', async () => {
-    for (const id of ['pixeldrain', 'googledrive', 'yandex']) {
-      assert.equal(await popup.locator(`#destinations input[value="${id}"]`).isDisabled(), true, id);
+  await test('hosts that need an account are only named until connected', async () => {
+    for (const id of ['pixeldrain', 'clicknupload', 'sendnow', 'dailyuploads', 'hexupload', 'googledrive', 'yandex']) {
+      assert.equal(await popup.locator(`#destinations input[value="${id}"]`).count(), 0, id);
     }
-    assert.match(await popup.locator('#destinations').innerText(), /Set up in Settings/);
+    const more = await popup.locator('#destinations .dest-more').innerText();
+    assert.match(more, /With your own account: Pixeldrain, Clicknupload, Send\.now, Daily Uploads, HexUpload/);
+    assert.match(more, /Set up in Settings/);
+  });
+
+  await test('settings: an XFileSharing key is checked, then the host can be picked', async () => {
+    const settings = await context.newPage();
+    await settings.goto(`chrome-extension://${extId}/options.html`);
+    assert.match(await settings.locator('#host-nosetup').innerText(), /Buzzheavier, VikingFile, Krakenfiles/);
+    const host = settings.locator('#host-clicknupload');
+    await host.locator('input[type=password]').fill('wrong-key');
+    await host.getByRole('button', { name: 'Save' }).click();
+    await host.locator('[role=status]').filter({ hasText: "doesn't work" }).waitFor({ timeout: 5000 });
+    await host.locator('input[type=password]').fill('test-key');
+    await host.getByRole('button', { name: 'Save' }).click();
+    await settings.locator('#host-clicknupload .state').filter({ hasText: 'Connected as tester' }).waitFor({ timeout: 5000 });
+    await settings.close();
+    await popup.locator('#destinations input[value="clicknupload"]').waitFor({ timeout: 5000 });
+    assert.doesNotMatch(await popup.locator('#destinations .dest-more').innerText(), /Clicknupload/);
+  });
+
+  await test('mirrors to Clicknupload and Send.now with share links', async () => {
+    await setStorage({ 'accounts.sendnow': { secret: 'test-key', label: 'tester' } });
+    await popup.locator('#destinations input[value="sendnow"]').waitFor({ timeout: 5000 });
+    const r = await mirror(`${BASE}/file/backup.7z?size=${2 * MB}`, { destinations: ['clicknupload', 'sendnow'] });
+    assert.equal(r.status, '2 links ready');
+    assert.match(r.uploads.Clicknupload, /^https:\/\/clicknupload\.click\/\w+$/);
+    assert.match(r.uploads['Send.now'], /^https:\/\/send\.now\/\w+$/);
+    const s = await stats();
+    const src = s.served['backup.7z'].sha256;
+    assert.equal(s.received['clicknupload.click:backup.7z'].sha256, src);
+    assert.equal(s.received['send.now:backup.7z'].sha256, src);
+    assert.deepEqual(
+      s.hosts.xfsUploads.map((u) => [u.site, u.utype]).sort(),
+      [['clicknupload.click', 'reg'], ['send.now', 'reg']],
+    );
+  });
+
+  await test('a revoked XFileSharing key gives a clear message', async () => {
+    await setStorage({ 'accounts.sendnow': { secret: 'revoked', label: 'tester' } });
+    const r = await mirror(`${BASE}/file/again.7z?size=1000`, { destinations: ['sendnow'] });
+    assert.match(r.uploads['Send.now'], /Send\.now rejected your API key/);
   });
 
   await test('settings: a wrong Pixeldrain key is rejected, the right one connects', async () => {
