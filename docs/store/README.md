@@ -7,8 +7,8 @@
 
 | Decision | Where it's used | Notes |
 |---|---|---|
-| **Publisher name** shown in the stores | Store accounts, privacy policy | Your name or a project name. |
-| **Contact email** | Stores, privacy policy | It's public, so a separate address keeps your personal one private. |
+| ~~Publisher name~~ | Store accounts, privacy policy | Decided: Sarawut Detyotdee. |
+| ~~Contact email~~ | Stores, privacy policy | Decided: sarawut.det11@gmail.com (public). |
 | **Where to host the privacy policy** | All stores need a public URL | Easiest: a free GitHub Pages site. A public GitHub repository also gives you a support URL. |
 | **Open source or not** | Firefox review, trust | Firefox needs the source either way, but only reviewers see it. A public repo builds trust and doubles as a homepage. |
 | **Which stores first** | Accounts, fees | Edge Add-ons is free and you already use Edge. Chrome Web Store has a one-time fee. Firefox needs more build work first (M5). |

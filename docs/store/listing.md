@@ -65,7 +65,7 @@ Only mirror files you have the right to share, and follow each hosting service's
 
 ### Support
 
-- Support email: `[CONTACT EMAIL]`
+- Support email: `sarawut.det11@gmail.com`
 - Website / support URL: `[WEBSITE OR REPOSITORY URL]`
 - Privacy policy URL: `[PRIVACY POLICY URL]` (host [privacy-policy.md](privacy-policy.md) publicly first)
 
@@ -203,5 +203,5 @@ I've made a free browser extension called EasyMirror. It lets people copy a file
 Before I publish it in the Chrome, Edge and Firefox stores, I wanted to check that you're OK with this, and whether there's anything you'd like me to do differently (rate limits, a User-Agent, a link back, or leaving Catbox out).
 
 Thanks for running Catbox,
-[YOUR NAME]
+Sarawut Detyotdee
 ```

@@ -46,7 +46,7 @@ The popup and Settings page have a "Report a problem" link, and a failed mirror 
 - You can see exactly what will be included before anything happens, and untick "Include technical details" to send none.
 - **Nothing is sent until you submit the form yourself.** The details are placed in the form's address when it opens, so the form provider receives them when the form page loads, but they reach the developer only if you submit it. If you close the tab, nothing is submitted.
 
-What you submit is stored by Tally under its privacy policy (https://tally.so/help/privacy-policy) and is used only to fix problems and improve EasyMirror. To have a report deleted, write to [CONTACT EMAIL].
+What you submit is stored by Tally under its privacy policy (https://tally.so/help/privacy-policy) and is used only to fix problems and improve EasyMirror. To have a report deleted, write to sarawut.det11@gmail.com.
 
 ## Donations
 
@@ -80,7 +80,7 @@ EasyMirror does not look at other tabs, and it doesn't touch downloads you start
 - **Mirror history:** press "Clear finished" in the popup.
 - **Keys and tokens:** remove them on the Settings page.
 - **Everything:** uninstalling EasyMirror deletes all of its data from your browser.
-- **A report you submitted:** write to [CONTACT EMAIL] and it will be deleted.
+- **A report you submitted:** write to sarawut.det11@gmail.com and it will be deleted.
 
 Files you uploaded stay on the hosting services. Delete them there, following each service's rules.
 
@@ -94,5 +94,5 @@ If EasyMirror's data handling changes, this page will be updated before that ver
 
 ## Contact
 
-Questions about this policy: [CONTACT EMAIL]
-Publisher: [PUBLISHER NAME]
+Questions about this policy: sarawut.det11@gmail.com
+Publisher: Sarawut Detyotdee
