@@ -1,0 +1,195 @@
+# Store listing drafts
+
+Copy-paste text for the Chrome Web Store, Microsoft Edge Add-ons and Firefox Add-ons forms. Replace `[BRACKETED]` placeholders. These describe the release build: GoFile, Catbox and Pixeldrain, with Google Drive and Yandex.Disk switched off.
+
+Field rules come from the stores' docs (checked 2026-10-17), but the forms change; check the live form for exact labels and limits.
+
+---
+
+## Shared text
+
+### Name
+
+```
+EasyMirror
+```
+
+### Short summary
+
+For Chrome's summary (132-character limit) and Firefox's summary (250-character limit). This one is 116 characters:
+
+```
+Copy a file from any link or download page to GoFile, Catbox or Pixeldrain in one click, straight from your browser.
+```
+
+### Detailed description
+
+```
+EasyMirror copies a file from a link to the file-hosting services you choose, and gives you the new share links. It runs entirely in your browser, using your own internet connection and, where needed, your own accounts.
+
+HOW IT WORKS
+• Paste a link in the popup, or right-click a link and choose "Mirror with EasyMirror".
+• Tick where it should go: GoFile, Catbox and/or Pixeldrain.
+• EasyMirror downloads the file once and uploads it to every service you picked at the same time, with progress for each.
+• Copy the new links with one click, or all of them at once.
+
+WORKS WITH DOWNLOAD PAGES
+Many sites hide the real file behind a page with a Download button. Paste the page link, or open the page and press "Catch the next download on this page". Then click the site's Download button as usual, and EasyMirror takes over that download. If a site only allows a link to be used once, your browser keeps the download and EasyMirror asks you to choose the file to finish.
+
+FEATURES
+• Large files: tested with 5 GB files. Files are kept on disk during the transfer, not in memory.
+• One download, several uploads in parallel.
+• Checks each service's limits first (for example, Catbox's 200 MB limit and blocked file types) and tells you why a service was skipped.
+• Clear messages when something goes wrong, per service.
+• Notification when a mirror is done.
+
+ACCOUNTS
+• GoFile and Catbox work without an account. You can add your own GoFile token or Catbox userhash in Settings.
+• Pixeldrain needs your own API key, added in Settings.
+
+PRIVACY
+EasyMirror has no server, no analytics and no ads. Your files, links and keys go only to the site the file comes from and the services you choose. Keys and history are stored on your device only. Full policy: [PRIVACY POLICY URL]
+
+PLEASE NOTE
+Only mirror files you have the right to share, and follow each hosting service's terms. EasyMirror is an independent project and is not affiliated with GoFile, Catbox or Pixeldrain.
+```
+
+### Category
+
+- Chrome Web Store: **Productivity** (or "Tools", depending on the dashboard's current list)
+- Edge Add-ons: **Productivity**
+- Firefox: **Download Management**
+
+### Support
+
+- Support email: `[CONTACT EMAIL]`
+- Website / support URL: `[WEBSITE OR REPOSITORY URL]`
+- Privacy policy URL: `[PRIVACY POLICY URL]` (host [privacy-policy.md](privacy-policy.md) publicly first)
+
+---
+
+## Chrome Web Store: Privacy practices tab
+
+### Single purpose
+
+```
+EasyMirror copies a file that the user points it to (a link, or a download the user starts on a file-hosting page) to file-hosting services the user selects, and returns the new share links.
+```
+
+### Permission justifications
+
+| Permission | Justification (paste into the field) |
+|---|---|
+| `storage` | Saves the user's settings, the API keys or tokens they enter for their own hosting accounts, and their mirror history, locally on the device. It also keeps the state of running mirrors so progress survives the service worker restarting. |
+| `offscreen` | Runs file transfers in an offscreen document so that large transfers (several GB) keep going when the popup closes and the service worker is suspended. The file is held temporarily in the extension's private storage and uploaded from there. |
+| `downloads` | When the user asks EasyMirror to catch a download on a file-hosting page, EasyMirror pauses the download the user starts there, fetches the file itself, then cancels the browser's copy (or resumes it if the file can't be fetched again). Downloads the user didn't ask EasyMirror to catch are ignored. |
+| `webRequest` | Non-blocking, and used only for the tab the user asked EasyMirror to watch. It records that tab's request URLs and submitted form fields, so a download started by a form button can be repeated. Requests in other tabs are ignored, and the recorded data is discarded when the download starts or the tab closes. |
+| `contextMenus` | Adds "Mirror with EasyMirror" to the right-click menu for links, and "Mirror the next download on this page" for pages. |
+| `notifications` | Tells the user when a mirror has finished, failed, or needs them to click a download button or choose a file. |
+| Host permissions: `https://*.gofile.io/*`, `https://catbox.moe/*`, `https://pixeldrain.com/*` | Uploads the user's file to these file-hosting services through their public APIs, when the user selects them as destinations. |
+| Optional host permission: `<all_urls>` | Requested at runtime, the first time the user mirrors something. Needed to download the file from whichever site the user's link points to, including the download servers it redirects to, which can be on any domain. Only used for links and pages the user explicitly mirrors. |
+
+### Remote code
+
+```
+No, I am not using remote code.
+```
+
+All code ships in the package. The extension only sends and receives file data and JSON through the hosting services' APIs.
+
+### Data usage
+
+EasyMirror never sends data to the developer, but Chrome counts data the extension handles and transmits anywhere. Recommended answers:
+
+| Data type | Tick? | Why |
+|---|---|---|
+| Personally identifiable information | No | |
+| Health information | No | |
+| Financial and payment information | No | |
+| **Authentication information** | **Yes** | The user's Pixeldrain API key, GoFile token and Catbox userhash are stored locally and sent to that service. |
+| Personal communications | No | |
+| Location | No | |
+| Web history | No | Source links are kept in local history only, never transmitted. |
+| **User activity** | **Yes** (conservative) | The "watch this tab" feature monitors one tab's network requests. It stays local, but this category covers network monitoring. |
+| **Website content** | **Yes** | The files the user mirrors are downloaded from websites and uploaded to the chosen services. |
+
+Tick all three certifications. They should read roughly as below; check the dashboard's exact wording:
+- I do not sell or transfer user data to third parties, outside of the approved use cases.
+- I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
+- I do not use or transfer user data to determine creditworthiness or for lending purposes.
+
+### Images
+
+- Store icon: `public/icon/128.png` (already in the repo).
+- Screenshots: 1–5 at **1280×800** (or 640×400). Not made yet.
+- Small promo tile: **440×280**. Not made yet.
+
+---
+
+## Edge Add-ons (Partner Center)
+
+Reuse the shared text: name, summary, detailed description, category, privacy policy URL and support details. Edge asks for permission explanations in its own form; reuse the table above. Edge Add-ons is free to join.
+
+---
+
+## Firefox Add-ons (AMO)
+
+Not ready to submit yet: the Firefox build still needs work (milestone M5). Firefox has no offscreen documents, so the transfer engine has to run in the background page there.
+
+When it is ready:
+- **Summary:** the short summary above (250-character limit).
+- **Description:** the detailed description above.
+- **Data collection declaration**, required in the manifest for new extensions. EasyMirror sends credentials and website content to the services the user picks, so in `wxt.config.ts` for the Firefox build:
+
+  ```json
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "[easymirror@YOUR-DOMAIN]",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["authenticationInfo", "websiteContent"]
+      }
+    }
+  }
+  ```
+
+  `strict_min_version` 140 avoids having to build a separate consent screen for older Firefox versions.
+- **Source code:** AMO asks for the source, because the code is bundled. Upload the repository as a zip, and give these build steps in the reviewer notes:
+  `npm ci` then `npx wxt build -b firefox`. Output is in `.output/firefox-mv3`.
+
+---
+
+## Notes for reviewers (all stores)
+
+```
+How to test without any account:
+1. Click the EasyMirror toolbar icon.
+2. Paste a direct file link, for example any https://files.catbox.moe/... link, or a small file from a public site.
+3. Leave GoFile and Catbox ticked and click Mirror. When asked, allow access to other sites (needed to download from the link's site).
+4. Two share links appear when the upload finishes.
+
+Download pages: open a GoFile download page (https://gofile.io/d/...), click the EasyMirror icon, press "Catch the next download on this page", then click GoFile's Download button. EasyMirror takes over that download.
+
+Pixeldrain needs a free Pixeldrain account and API key (Settings page); it's optional.
+
+The extension has no server and no analytics. Optional all-sites access is used only to download the file the user chose to mirror.
+```
+
+---
+
+## Before launch: courtesy email to Catbox
+
+Catbox's FAQ says it can't be used for commercial services without approval. EasyMirror is free, but it sends uploads to Catbox from many users, so ask first. Draft, to send from your own address (find the contact address on catbox.moe):
+
+```
+Subject: Free browser extension that uploads to Catbox via your API
+
+Hi,
+
+I've made a free browser extension called EasyMirror. It lets people copy a file from a link to file hosts they choose, and Catbox is one of the options. It uses your documented API (reqtype=fileupload, plus the optional userhash), runs entirely in the user's browser from their own IP, and checks your 200 MB limit and blocked file types before uploading. There are no ads and no payments.
+
+Before I publish it in the Chrome, Edge and Firefox stores, I wanted to check that you're OK with this, and whether there's anything you'd like me to do differently (rate limits, a User-Agent, a link back, or leaving Catbox out).
+
+Thanks for running Catbox,
+[YOUR NAME]
+```

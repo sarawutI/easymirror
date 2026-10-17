@@ -1,0 +1,82 @@
+<!--
+DRAFT. Before publishing, replace every [BRACKETED] placeholder and host this page
+at a public URL (e.g. GitHub Pages). The stores link to that URL.
+Keep it in sync with the code: if a version adds analytics, a server, or Google
+Drive / Yandex.Disk sign-in (src/features.ts), this policy must be updated first.
+Google sign-in in particular requires a "Limited Use" statement for Google user data.
+-->
+
+# EasyMirror Privacy Policy
+
+_Last updated: [DATE]_
+
+EasyMirror is a browser extension that copies a file from a link to file-hosting services you choose, and gives you the new share links. This policy explains what EasyMirror does with your data.
+
+**The short version:** EasyMirror has no server. The developer never receives your files, your links, your keys or any information about how you use the extension. Everything happens in your browser, between the site the file comes from and the hosting services you pick.
+
+## What EasyMirror stores on your device
+
+EasyMirror keeps the following in your browser's extension storage, on your device only:
+
+- **Your settings:** which hosting services you last chose.
+- **Keys and tokens you add:** a Pixeldrain API key, a GoFile account token and a Catbox userhash, if you add them in Settings. If you use GoFile without your own account, EasyMirror also keeps the token of the anonymous GoFile guest account it creates for you.
+- **Mirror history:** for each mirror, the source link, file name, size, progress, the new share links and any error messages. It stays until you press "Clear finished" or uninstall the extension.
+- **Temporary file copies:** while a mirror is running, the file is held in the extension's private browser storage so it can be uploaded to several services. It is deleted when that mirror finishes or fails.
+
+This data is not synced to other devices and is not sent to the developer.
+
+## Where your data goes
+
+EasyMirror only sends data where it has to, to do what you asked:
+
+1. **The site the file comes from.** EasyMirror downloads the file from the link you give it, the same way your browser would. That includes the cookies your browser already has for that site, since some sites only let signed-in visitors download.
+2. **The hosting services you choose.** EasyMirror uploads the file and its name to each service you select (GoFile, Catbox or Pixeldrain), along with the key or token you added for that service, if any. Each service's own privacy policy and terms apply to files you upload there:
+   - GoFile: https://gofile.io/privacy and https://gofile.io/terms
+   - Catbox: https://catbox.moe/legal.php
+   - Pixeldrain: https://docs.pixeldrain.com/questions_and_answers/ and https://docs.pixeldrain.com/content_policy/
+
+EasyMirror sends nothing anywhere else. It has no analytics, ads or tracking, and it does not sell or share your data with anyone.
+
+## Watching a page for a download
+
+Some sites hide the real file link behind a download page. When you ask EasyMirror to catch the next download on a page (or paste a link that turns out to be a download page), EasyMirror watches **that one browser tab** until you click the site's download button:
+
+- It notes the web addresses that tab requests, and the contents of forms submitted in it, so it can repeat the download request itself.
+- When the download starts, EasyMirror pauses your browser's download, fetches the file itself, then cancels the browser's copy. If it can't fetch the file, it lets your browser finish the download instead and asks you to choose the downloaded file.
+- What it notes is kept in temporary memory and discarded as soon as the download starts, the tab is closed, or you cancel.
+
+EasyMirror does not look at other tabs, and it doesn't touch downloads you start without asking it to.
+
+## Permissions
+
+| Permission | Why EasyMirror needs it |
+|---|---|
+| Storage | Saves your settings, keys and mirror history on your device. |
+| Offscreen document | Runs large transfers in the background, so they keep going when the popup is closed. |
+| Downloads | Takes over the download you start on a page you asked EasyMirror to watch. |
+| Web requests | Notes the requests of a tab you asked EasyMirror to watch, so it can repeat the download (see above). |
+| Context menus | Adds "Mirror with EasyMirror" to the right-click menu. |
+| Notifications | Tells you when a mirror is finished or needs your attention. |
+| Access to gofile.io, catbox.moe, pixeldrain.com | Uploads files to those services. |
+| Access to all sites (asked the first time you mirror) | Downloads the file from whichever site your link points to. Only used for links you mirror. |
+
+## Deleting your data
+
+- **Mirror history:** press "Clear finished" in the popup.
+- **Keys and tokens:** remove them on the Settings page.
+- **Everything:** uninstalling EasyMirror deletes all of its data from your browser.
+
+Files you uploaded stay on the hosting services. Delete them there, following each service's rules.
+
+## Children
+
+EasyMirror is not directed at children under 13 and does not knowingly handle their personal information.
+
+## Changes to this policy
+
+If EasyMirror's data handling changes, this page will be updated before that version is released, and the date at the top will change.
+
+## Contact
+
+Questions about this policy: [CONTACT EMAIL]
+Publisher: [PUBLISHER NAME]
