@@ -51,7 +51,7 @@ PROBLEMS AND FEEDBACK
 Something didn't work? Press "Report this problem" on the failed mirror, or "Report a problem" at the bottom of the popup. You'll see exactly which technical details go with your report before anything is sent, and file names and links are left out unless you choose to include them.
 
 PRIVACY
-EasyMirror has no server, no analytics and no ads. Your files, links and keys go only to the site the file comes from and the services you choose. Keys and history are stored on your device only. Full policy: [PRIVACY POLICY URL]
+EasyMirror has no server, no analytics and no ads. Your files, links and keys go only to the site the file comes from and the services you choose. Keys and history are stored on your device only. Full policy: https://sarawuti.github.io/easymirror/store/privacy-policy.html
 
 PLEASE NOTE
 Only mirror files you have the right to share, and follow each hosting service's terms. EasyMirror is an independent project and is not affiliated with GoFile, Catbox or Pixeldrain.
@@ -66,8 +66,8 @@ Only mirror files you have the right to share, and follow each hosting service's
 ### Support
 
 - Support email: `sarawut.det11@gmail.com`
-- Website / support URL: `[WEBSITE OR REPOSITORY URL]`
-- Privacy policy URL: `[PRIVACY POLICY URL]` (host [privacy-policy.md](privacy-policy.md) publicly first)
+- Website / support URL: `https://github.com/sarawutI/easymirror`
+- Privacy policy URL: `https://sarawuti.github.io/easymirror/store/privacy-policy.html` (published from [privacy-policy.md](privacy-policy.md) by GitHub Pages)
 
 ---
 

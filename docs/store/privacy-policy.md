@@ -1,6 +1,6 @@
 <!--
-DRAFT. Before publishing, replace every [BRACKETED] placeholder and host this page
-at a public URL (e.g. GitHub Pages). The stores link to that URL.
+Published by GitHub Pages at https://sarawuti.github.io/easymirror/store/privacy-policy.html
+(the stores link there). Change "Last updated" whenever this text changes.
 Keep it in sync with the code: if a version adds analytics, a server, or Google
 Drive / Yandex.Disk sign-in (src/features.ts), this policy must be updated first.
 Google sign-in in particular requires a "Limited Use" statement for Google user data.
@@ -8,7 +8,7 @@ Google sign-in in particular requires a "Limited Use" statement for Google user 
 
 # EasyMirror Privacy Policy
 
-_Last updated: [DATE]_
+_Last updated: 17 October 2026_
 
 EasyMirror is a browser extension that copies a file from a link to file-hosting services you choose, and gives you the new share links. This policy explains what EasyMirror does with your data.
 
