@@ -10,7 +10,7 @@
 // link is hidden while it's empty.
 const TEST = import.meta.env.MODE === 'spike';
 
-export const FEEDBACK_FORM = TEST ? 'http://127.0.0.1:8787/mock/form?details={details}' : '';
+export const FEEDBACK_FORM = TEST ? 'http://127.0.0.1:8787/mock/form?details={details}' : 'https://tally.so/r/J1KeWJ?details={details}';
 export const DONATE = TEST ? 'http://127.0.0.1:8787/mock/donate' : '';
 
 /** Form URLs get long; browsers and form sites cope with a few thousand characters. */

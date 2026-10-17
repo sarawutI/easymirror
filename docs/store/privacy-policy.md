@@ -40,14 +40,14 @@ EasyMirror sends nothing anywhere else on its own. It has no analytics, ads or t
 
 ## Reporting a problem
 
-The popup and Settings page have a "Report a problem" link, and a failed mirror has a "Report this problem" button. They open a page that shows the technical details that would go with your report, then opens our feedback form ([FORM PROVIDER, e.g. Tally]) in a new tab:
+The popup and Settings page have a "Report a problem" link, and a failed mirror has a "Report this problem" button. They open a page that shows the technical details that would go with your report, then opens our feedback form (hosted by Tally) in a new tab:
 
 - **What's included by default:** the EasyMirror version, your browser's user-agent string, which hosting services are set up (not your keys), and the time, status, size and error messages of your last 5 mirrors.
 - **What's left out unless you tick the box:** file names, source links and share links.
 - You can see exactly what will be included before anything happens, and untick "Include technical details" to send none.
 - **Nothing is sent until you submit the form yourself.** The details are placed in the form's address when it opens, so the form provider receives them when the form page loads, but they reach the developer only if you submit it. If you close the tab, nothing is submitted.
 
-What you submit is stored by [FORM PROVIDER] under its privacy policy ([FORM PROVIDER PRIVACY URL]) and is used only to fix problems and improve EasyMirror. To have a report deleted, write to [CONTACT EMAIL].
+What you submit is stored by Tally under its privacy policy (https://tally.so/help/privacy-policy) and is used only to fix problems and improve EasyMirror. To have a report deleted, write to [CONTACT EMAIL].
 
 ## Donations
 
