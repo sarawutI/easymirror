@@ -2,7 +2,7 @@
 
 Browser extension that mirrors a file from a link to your own storage hosts: paste a link (or right-click one), pick destinations, get share links back.
 
-Status: direct file links **and download pages** (e.g. `gofile.io/d/…`) to 9 hosts: GoFile, Catbox, Buzzheavier and VikingFile with no account; Pixeldrain, Clicknupload, Send.now, Daily Uploads and HexUpload with the user's API key (Settings page). Krakenfiles is built but switched off until a real upload works (`KRAKENFILES_ENABLED` in [src/features.ts](src/features.ts)). See [docs/plan.md](docs/plan.md) for what's next.
+Status: direct file links **and download pages** (e.g. `gofile.io/d/…`) to 11 hosts: GoFile, Catbox, Buzzheavier, VikingFile, 1Fichier and FileDitch with no account; Pixeldrain, Clicknupload, Send.now, Daily Uploads and HexUpload with the user's API key (Settings page). Krakenfiles is built but switched off until a real upload works (`KRAKENFILES_ENABLED` in [src/features.ts](src/features.ts)). See [docs/plan.md](docs/plan.md) for what's next.
 
 Google Drive and Yandex.Disk support is built and tested but **switched off** in release builds (`OAUTH_HOSTS_ENABLED` in [src/features.ts](src/features.ts)). They need a one-time app registration with Google and Yandex first: [docs/account-setup.md](docs/account-setup.md). Test builds always include them.
 

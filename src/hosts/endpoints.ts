@@ -8,6 +8,10 @@ export const endpoints = {
   buzzheavierUpload: TEST ? `${MOCK}/buzzheavier` : 'https://w.buzzheavier.com',
   vikingfileApi: TEST ? `${MOCK}/vikingfile/api` : 'https://vikingfile.com/api',
   krakenfilesApi: TEST ? `${MOCK}/krakenfiles/api` : 'https://krakenfiles.com/api',
+  fichierApi: TEST ? `${MOCK}/1fichier/api/v1` : 'https://api.1fichier.com/v1',
+  /** 1Fichier names its upload node by host name, e.g. "up2.1fichier.com". */
+  fichierNode: (host: string) => (TEST ? `${MOCK}/1fichier-node/${host}` : `https://${host}`),
+  fileditchChunked: TEST ? `${MOCK}/fileditch/chunked.php` : 'https://new.fileditch.com/chunked.php',
   pixeldrainApi: TEST ? `${MOCK}/pixeldrain/api` : 'https://pixeldrain.com/api',
   /** XFileSharing hosts: `${xfsApi(site)}/upload/server`, `/account/info`. */
   xfsApi: (site: string) => (TEST ? `${MOCK}/xfs/${new URL(site).hostname}/api` : `${site}/api`),

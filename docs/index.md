@@ -1,6 +1,6 @@
 # EasyMirror
 
-A browser extension that copies a file from a link, or from a download page, to GoFile, Catbox, Buzzheavier, VikingFile, Pixeldrain, Clicknupload, Send.now, Daily Uploads or HexUpload in one click.
+A browser extension that copies a file from a link, or from a download page, to GoFile, Catbox, Buzzheavier, VikingFile, 1Fichier, FileDitch, Pixeldrain, Clicknupload, Send.now, Daily Uploads or HexUpload in one click.
 
 - [Privacy policy](store/privacy-policy.html)
 - [Report a problem or send feedback](https://tally.so/r/J1KeWJ)

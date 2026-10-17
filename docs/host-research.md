@@ -16,7 +16,7 @@ Legend
 | **Yandex.Disk** | Alive | Official REST API (get upload URL, then PUT) | Required (OAuth) | Official public-download API, no auth needed | Yes (upload by URL) | Yes | High |
 | **MEGA** | Alive | Via `megajs` library (unofficial, handles encryption, works in browser) | Required | `megajs` can download shared links | No | Yes | Medium (upload needs the library's newer low-level flow) |
 | **Mixdrop** | Alive | Official API, `POST ul.mixdrop.ag/api` | Required (email + API key) | Page flow (video-streaming host) | Yes (`/remoteupload`) | No | High (official docs) |
-| **1Fichier** | Alive | Official API (`api.1fichier.com/v1`) | Required, and the **API needs a Premium subscription** | Page flow for free users (wait timer) | Yes (premium) | Yes | Medium |
+| **1Fichier** | Alive | Official API (`api.1fichier.com/v1`) | **Corrected 2026-10-17:** uploading needs no account or key; only download features need Premium (see the update below) | Page flow for free users (wait timer) | Yes (premium) | Yes | Medium |
 | **Mail.ru Cloud** | Alive | Unofficial (WebDAV / reverse-engineered web API) | Required (app password) | Unofficial | No | Yes | Low–medium; can break without notice |
 | **FileDitch** | Probably alive | Undocumented endpoint (`up1.fileditch.com/temp/upload.php`) | None | Direct links | No | No | Low |
 | **Send.cm** | Alive (API page blocked our fetch) | API claimed on third-party listings, not verified | Optional? | Page flow | Claimed | No | Low |
@@ -32,7 +32,7 @@ Legend
 1. **The account requirement isn't a blocker.** The hosts that need accounts (Pixeldrain, Google Drive, Yandex, MEGA, Mixdrop) are the ones with the best APIs.
 2. **The real dividing line is "official API" vs "no API".** The bottom half of the table would need us to imitate the website, which breaks whenever the site changes.
 3. **Remote upload is a big win.** When the source is a direct link, Catbox, Mixdrop, Yandex.Disk and 1Fichier (premium) can fetch it themselves. No bandwidth or memory is used on the user's side, which also solves the large-file worry for those hosts.
-4. **1Fichier's API is premium-only**, so it's an "if you have premium" option.
+4. ~~1Fichier's API is premium-only~~ Corrected 2026-10-17: only its download features are; anonymous uploads work.
 5. **The page flow is the universal fallback for sources.** Hosts with timers and captchas still work as sources if the user clicks through the page themselves.
 
 ## Recommended starting set (v1)
@@ -42,7 +42,7 @@ Legend
 
 **Sources:** any direct URL, plus Google Drive, Yandex.Disk, Pixeldrain, Catbox, GoFile, and the generic page flow for everything else.
 
-**v2:** MEGA, Mixdrop, 1Fichier (premium), Mail.ru.
+**v2:** MEGA, Mixdrop, Mail.ru. (1Fichier was added on 2026-10-17; its uploads turned out not to need Premium.)
 **Later / only if demand:** the low-confidence hosts. Each needs a live check first.
 
 ## Unverified / to check before building
@@ -61,9 +61,10 @@ Checked the API endpoints live (read-only requests, no uploads). Upload formats 
 | **Krakenfiles** | Built, switched off (`KRAKENFILES_ENABLED`). On 2026-10-17 all 11 upload servers we tried (hs1–hs15.krakencloud.net) refused connections from our network, and the home page said "Sorry, service unavailable". Retry, then turn on | `GET /api/server/available`, then POST `files[]` to the node's `/_uploader/gallery/upload` → `files[0].url` (site-relative) | None. The account API (`X-AUTH-TOKEN`) is not used yet | 1 GB (krakenfiles.com home page). The anonymous uploader is the website's, not a documented API, so it may change |
 | **Clicknupload, Send.now (was Send.cm), Daily Uploads, HexUpload (hexload.com)** | Added, one shared adapter. Needs a real-account test | XFileSharing API: `GET /api/upload/server?key=` → `sess_id` + upload URL; POST `sess_id`, `utype`, `file_0` → `[{file_code}]`, link `{site}/{file_code}`. All four answered `/api/account/info` with "Invalid key" for a fake key | User's own API key | Upload servers are on other, changing domains (covered by the all-sites permission) |
 | **Mixdrop** | Later | `POST ul.mixdrop.ag/api` with email + key | Required | Video host; may refuse other files |
-| **Bunkr** | Later | Token + `/api/node`, then chunked Dropzone-style upload and `/api/upload/finishchunks` | Required | Needs chunked uploads in the engine |
-| **FileDitch** | Skip | Site redesigned (new.fileditch.com), no documented upload | — | |
-| **MEGA, 1Fichier, Mail.ru, MediaFire, SendSpace** | Skip | See the table above | | |
+| **1Fichier** | Added. Real upload worked 2026-10-17 | Official API (https://1fichier.com/api.html): POST `api.1fichier.com/v1/upload/get_upload_server.cgi` → `{url, id}`; POST `file[]` to `https://{url}/upload.cgi?id={id}` (redirects to the report page); GET `https://{url}/end.pl?xid={id}` with header `JSON: 1` → `links[0].download`. The page says "The API is available to every registered account" and marks only some features (downloads, FTP accounts) as Premium; the upload node came back without any key | None (optional API key not used yet) | 300 GB per file. Free downloads are slow, with a wait timer |
+| **FileDitch** | Added. Real upload worked 2026-10-17 (one piece; the link opened in a normal browser) | No documented API. new.fileditch.com's own uploader (read from its page): POST `chunked.php?action=init&filename=&size=` → `{id, chunk_size}`; PUT each piece to `?action=chunk&id=&i=N`; POST `?action=finish&id=` → `{url}`, or 409 with `missing` pieces | None | Up to 150 GB; blocks executables, scripts, web pages and some Office macro types (same list as its page). Needs the size before starting. May change without notice |
+| **Bunkr** | Skip | Token + `/api/node`, then chunked Dropzone-style upload and `/api/upload/finishchunks` | Required | **Registrations closed** (2026-10-17): `dash.bunkr.cr/api/check` reports `"private": true, "enableUserAccounts": false`, the sign-in page says "Registrations have been closed until further notice" (invite codes only), and `/api/register` answers "Registration is currently disabled." Only existing users could use it, and we can't test it. Revisit if sign-ups reopen; the chunked engine support it needs now exists |
+| **MEGA, Mail.ru, MediaFire, SendSpace** | Skip | See the table above | | |
 
 Temporary hosts (Litterbox, Uguu, tmpfiles, temp.sh) were left out: files vanish within hours or days, which doesn't suit mirroring.
 

@@ -280,6 +280,34 @@ try {
     assert.match(r.uploads.Krakenfiles, /Krakenfiles refused the upload \(File type not allowed\)/);
   });
 
+  await test('mirrors to 1Fichier, and to FileDitch in pieces, with share links', async () => {
+    const r = await mirror(`${BASE}/file/album.zip?size=${3.5 * MB}`, { destinations: ['onefichier', 'fileditch'] });
+    assert.equal(r.status, '2 links ready');
+    assert.match(r.uploads['1Fichier'], /^https:\/\/1fichier\.com\/\?\w+$/);
+    assert.match(r.uploads.FileDitch, /^https:\/\/fileditch\.com\/f\/\w+\/album\.zip$/);
+    const s = await stats();
+    const src = s.served['album.zip'].sha256;
+    assert.equal(s.received['onefichier:album.zip'].sha256, src);
+    assert.equal(s.received['fileditch:album.zip'].sha256, src, 'the 4 pieces put back together match');
+  });
+
+  await test('FileDitch: a failed piece is retried and a missing piece is sent again', async () => {
+    const r = await mirror(`${BASE}/file/flaky-gap.bin?size=${3.5 * MB}`, { destinations: ['fileditch'] });
+    assert.equal(r.status, 'Link ready');
+    const s = await stats();
+    assert.equal(s.received['fileditch:flaky-gap.bin'].sha256, s.served['flaky-gap.bin'].sha256);
+    assert.deepEqual(
+      s.hosts.fileditchFinish.filter((f) => f.name === 'flaky-gap.bin').map((f) => f.missing),
+      [[2], []],
+    );
+  });
+
+  await test("FileDitch is skipped for file types it doesn't accept", async () => {
+    const r = await mirror(`${BASE}/file/tool.apk?size=1000`, { destinations: ['gofile', 'fileditch'] });
+    assert.match(r.uploads.FileDitch, /FileDitch doesn't accept \.apk files/);
+    assert.match(r.uploads.GoFile, /^https:\/\/gofile\.io\/d\//);
+  });
+
   // --- Accounts (Pixeldrain, XFileSharing hosts, Google Drive, Yandex.Disk) ------
 
   const setStorage = (items) => popup.evaluate((items) => chrome.storage.local.set(items), items);
@@ -297,7 +325,7 @@ try {
   await test('settings: an XFileSharing key is checked, then the host can be picked', async () => {
     const settings = await context.newPage();
     await settings.goto(`chrome-extension://${extId}/options.html`);
-    assert.match(await settings.locator('#host-nosetup').innerText(), /Buzzheavier, VikingFile, Krakenfiles/);
+    assert.match(await settings.locator('#host-nosetup').innerText(), /Buzzheavier, VikingFile, 1Fichier, FileDitch, Krakenfiles/);
     const host = settings.locator('#host-clicknupload');
     await host.locator('input[type=password]').fill('wrong-key');
     await host.getByRole('button', { name: 'Save' }).click();

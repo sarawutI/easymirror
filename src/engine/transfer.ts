@@ -84,28 +84,96 @@ export async function saveToTemp(
   return handle.getFile();
 }
 
-/** XHR rather than fetch: fetch has no upload progress. */
-export function upload(
-  file: File,
-  spec: UploadSpec,
+type Answer = { status: number; response: string };
+
+/** One request. XHR rather than fetch: fetch has no upload progress. */
+function request(
+  method: string,
+  url: string,
+  headers: Record<string, string> | undefined,
+  body: Blob | FormData | null,
   onProgress: (sent: number) => void,
-): Promise<{ status: number; response: string }> {
+): Promise<Answer> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open(spec.kind === 'put' ? 'PUT' : 'POST', spec.url);
-    for (const [k, v] of Object.entries(spec.headers ?? {})) xhr.setRequestHeader(k, v);
+    xhr.open(method, url);
+    for (const [k, v] of Object.entries(headers ?? {})) xhr.setRequestHeader(k, v);
     xhr.upload.onprogress = (e) => onProgress(e.loaded);
     xhr.onload = () => resolve({ status: xhr.status, response: xhr.responseText });
     // XHR gives no detail here: refused connection, dropped connection and blocked request look alike.
-    xhr.onerror = () => reject(new Error(`Couldn't reach the upload server (${new URL(spec.url).host}). The site may be down; try again later.`));
+    xhr.onerror = () => reject(new Error(`Couldn't reach the upload server (${new URL(url).host}). The site may be down; try again later.`));
     xhr.onabort = () => reject(new Error('upload aborted'));
-    if (spec.kind === 'put') {
-      xhr.send(file);
-    } else {
-      const form = new FormData();
-      for (const [k, v] of Object.entries(spec.fields ?? {})) form.append(k, v);
-      form.append(spec.field ?? 'file', file, file.name);
-      xhr.send(form);
-    }
+    xhr.send(body);
   });
+}
+
+export function upload(file: File, spec: UploadSpec, onProgress: (sent: number) => void): Promise<Answer> {
+  if (spec.kind === 'chunked') return uploadChunked(file, spec, onProgress);
+  if (spec.kind === 'put') return request('PUT', spec.url, spec.headers, file, onProgress);
+  const form = new FormData();
+  for (const [k, v] of Object.entries(spec.fields ?? {})) form.append(k, v);
+  form.append(spec.field ?? 'file', file, file.name);
+  return request('POST', spec.url, spec.headers, form, onProgress);
+}
+
+const CHUNK_TRIES = 5;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Worth another try: no connection, rate limited, or a server error. */
+const retryable = (status: number) => status === 0 || status === 429 || status >= 500;
+
+/**
+ * Sends the file in pieces, one after another, each a slice read from disk (so memory
+ * stays flat), then asks the host to put them together. The finish answer goes to the
+ * destination's parseResponse like a single upload's would.
+ */
+async function uploadChunked(file: File, spec: UploadSpec, onProgress: (sent: number) => void): Promise<Answer> {
+  if (!spec.chunked) throw new Error(`${spec.label}: chunked upload without chunk settings`);
+  const c = spec.chunked;
+  const count = Math.max(1, Math.ceil(file.size / c.chunkSize));
+  const chunkBytes = (i: number) => Math.min(c.chunkSize, file.size - i * c.chunkSize);
+  let confirmed = 0; // bytes of pieces the host has accepted
+
+  const sendChunk = async (i: number) => {
+    const start = i * c.chunkSize;
+    const url = c.chunkUrl.replace('{index}', String(i));
+    for (let attempt = 1; ; attempt++) {
+      let status = 0;
+      let response = '';
+      try {
+        const body = file.slice(start, start + chunkBytes(i));
+        ({ status, response } = await request(c.method, url, c.headers, body, (n) => onProgress(confirmed + n)));
+      } catch (e) {
+        if (attempt >= CHUNK_TRIES) throw e;
+      }
+      const ok = status >= 200 && status < 300;
+      // Some hosts answer HTTP 200 with { success: false }: that's a final no.
+      const refused = ok && /"success"\s*:\s*false/.test(response);
+      if (ok && !refused) {
+        confirmed += chunkBytes(i);
+        return;
+      }
+      if (refused || !retryable(status) || attempt >= CHUNK_TRIES) {
+        throw new Error(`piece ${i + 1} of ${count} was refused (HTTP ${status}${response ? `: ${response.slice(0, 200)}` : ''})`);
+      }
+      await sleep(Math.min(16_000, (status === 429 ? 2000 : 1000) * 2 ** (attempt - 1)));
+    }
+  };
+
+  for (let i = 0; i < count; i++) await sendChunk(i);
+
+  // A host may answer the finish call with the pieces it is still missing (HTTP 409).
+  for (let round = 0; ; round++) {
+    const answer = await request('POST', c.finishUrl, c.headers, null, () => {});
+    let missing: number[] = [];
+    try {
+      missing = answer.status === 409 ? (JSON.parse(answer.response)?.missing ?? []) : [];
+    } catch {
+      // not JSON: hand the answer to parseResponse as it is
+    }
+    if (!missing.length || round >= 3) return answer;
+    for (const i of missing) {
+      confirmed -= chunkBytes(i);
+      await sendChunk(i);
+    }
+  }
 }

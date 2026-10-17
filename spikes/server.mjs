@@ -11,6 +11,7 @@
 //   POST /mock/catbox/api.php            Catbox API stand-in (rejects names containing "reject")
 //   /mock/buzzheavier, /mock/vikingfile, /mock/krakenfiles (+ /_uploader/gallery/upload)
 //   /mock/xfs/<site>/...                 XFileSharing API stand-in (key "test-key")
+//   /mock/1fichier..., /mock/fileditch/chunked.php   1Fichier and FileDitch stand-ins
 import { createServer } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import Busboy from 'busboy';
@@ -78,7 +79,7 @@ function receiveMultipart(req, fileField, done) {
 // Accepted credentials: Pixeldrain key "test-key", Google/Yandex token "test-token".
 const json = (res, status, body, headers = {}) =>
   res.writeHead(status, { 'Content-Type': 'application/json', ...headers }).end(JSON.stringify(body));
-const hosts = { driveShared: [], driveFolders: [], yandexFiles: new Set(), yandexPublished: [], xfsUploads: [] };
+const hosts = { driveShared: [], driveFolders: [], yandexFiles: new Set(), yandexPublished: [], xfsUploads: [], fileditchFinish: [] };
 
 /** Hashes a raw request body into received[key]; then calls done(). */
 function receiveRaw(req, key, done) {
@@ -134,6 +135,84 @@ function mockNoAccountHosts(req, res, p) {
     });
   }
   json(res, 404, { error: 'not found' });
+}
+
+// --- 1Fichier: upload node, upload.cgi (redirects to end.pl), end.pl with "JSON: 1" ---
+
+const fichier = new Map(); // upload id -> { name, size }
+
+function mockFichier(req, res, p, url) {
+  if (req.method === 'POST' && p === '/mock/1fichier/api/v1/upload/get_upload_server.cgi') {
+    return req.resume().on('end', () => json(res, 200, { url: 'up2.1fichier.com', id: randomBytes(5).toString('hex') }));
+  }
+  const node = '/mock/1fichier-node/up2.1fichier.com';
+  if (req.method === 'POST' && p === `${node}/upload.cgi`) {
+    const id = url.searchParams.get('id');
+    return receiveMultipart(req, 'file[]', (file) => {
+      if (file.filename.includes('reject')) return res.writeHead(403, { 'Content-Type': 'text/html' }).end('<p>Forbidden');
+      received[`onefichier:${file.filename}`] = file;
+      fichier.set(id, { name: file.filename, size: file.bytes });
+      res.writeHead(302, { Location: `${node}/end.pl?xid=${id}` }).end();
+    });
+  }
+  if (req.method === 'GET' && p === `${node}/end.pl`) {
+    const up = fichier.get(url.searchParams.get('xid'));
+    if (!up) return res.writeHead(404, { 'Content-Type': 'text/html' }).end('<p>Unknown upload');
+    if (req.headers.json !== '1') return res.writeHead(200, { 'Content-Type': 'text/html' }).end('<p>Upload report');
+    const code = randomBytes(5).toString('hex');
+    return json(res, 200, { incoming: 0, links: [{ download: `https://1fichier.com/?${code}`, filename: up.name, size: String(up.size), remove: `https://1fichier.com/remove/${code}/x`, whirlpool: '0' }] });
+  }
+  json(res, 404, { status: 'KO', message: 'not found' });
+}
+
+// --- FileDitch: chunked.php init / chunk / finish -------------------------------
+// 1 MB pieces. Names with "flaky" fail piece 1 once (503); names with "gap" lose
+// piece 2 once, so finish answers 409 with it missing.
+
+const ditch = new Map(); // id -> { name, size, total, pieces: Map<index, Buffer>, flaked, gapped }
+
+function mockFileditch(req, res, url) {
+  const action = url.searchParams.get('action');
+  const CHUNK = 1024 * 1024;
+  if (req.method === 'POST' && action === 'init') {
+    const name = url.searchParams.get('filename');
+    const size = Number(url.searchParams.get('size'));
+    if (!name || !(size > 0)) return json(res, 400, { success: false, error: 'bad request' });
+    const id = randomBytes(6).toString('hex');
+    const total = Math.ceil(size / CHUNK);
+    ditch.set(id, { name, size, total, pieces: new Map() });
+    return req.resume().on('end', () => json(res, 200, { success: true, id, chunk_size: CHUNK, total_chunks: total }));
+  }
+  const up = ditch.get(url.searchParams.get('id'));
+  if (!up) return req.resume().on('end', () => json(res, 404, { success: false, error: 'unknown upload' }));
+  if (req.method === 'PUT' && action === 'chunk') {
+    const i = Number(url.searchParams.get('i'));
+    const parts = [];
+    req.on('data', (c) => parts.push(c));
+    return req.on('end', () => {
+      if (up.name.includes('flaky') && i === 1 && !up.flaked) {
+        up.flaked = true;
+        return json(res, 503, { success: false, error: 'busy' });
+      }
+      up.pieces.set(i, Buffer.concat(parts));
+      json(res, 200, { success: true });
+    });
+  }
+  if (req.method === 'POST' && action === 'finish') {
+    return req.resume().on('end', () => {
+      if (up.name.includes('gap') && !up.gapped) {
+        up.gapped = true;
+        up.pieces.delete(2);
+      }
+      const missing = [...Array(up.total).keys()].filter((i) => !up.pieces.has(i));
+      hosts.fileditchFinish.push({ name: up.name, missing });
+      if (missing.length) return json(res, 409, { success: false, error: 'incomplete', missing });
+      const data = Buffer.concat([...Array(up.total).keys()].map((i) => up.pieces.get(i)));
+      received[`fileditch:${up.name}`] = { bytes: data.length, sha256: createHash('sha256').update(data).digest('hex') };
+      json(res, 200, { success: true, url: `https://fileditch.com/f/${randomBytes(4).toString('hex')}/${encodeURIComponent(up.name)}`, filename: up.name });
+    });
+  }
+  json(res, 400, { success: false, error: 'bad action' });
 }
 
 // --- XFileSharing hosts (Clicknupload, Send.now, Daily Uploads, HexUpload) ------
@@ -318,6 +397,8 @@ createServer((req, res) => {
     return mockNoAccountHosts(req, res, p);
   }
   if (p.startsWith('/mock/xfs/')) return mockXfs(req, res, p, url);
+  if (p.startsWith('/mock/1fichier')) return mockFichier(req, res, p, url);
+  if (p === '/mock/fileditch/chunked.php') return mockFileditch(req, res, url);
   if (p.startsWith('/mock/google/')) return mockGoogle(req, res, p, url);
   if (p.startsWith('/mock/yandex/')) return mockYandex(req, res, p, url);
 

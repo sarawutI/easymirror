@@ -35,6 +35,8 @@ EasyMirror only sends data where it has to, to do what you asked:
    - Catbox: https://catbox.moe/legal.php
    - Buzzheavier: https://buzzheavier.com/terms
    - VikingFile: https://vikingfile.com/terms
+   - 1Fichier: https://1fichier.com/cgu.html
+   - FileDitch: https://new.fileditch.com/faq.html and https://new.fileditch.com/abuse.html
    - Pixeldrain: https://docs.pixeldrain.com/questions_and_answers/ and https://docs.pixeldrain.com/content_policy/
    - Clicknupload: https://clicknupload.click/tos.html
    - Send.now: https://send.now/terms
@@ -78,7 +80,7 @@ EasyMirror does not look at other tabs, and it doesn't touch downloads you start
 | Web requests | Notes the requests of a tab you asked EasyMirror to watch, so it can repeat the download (see above). |
 | Context menus | Adds "Mirror with EasyMirror" to the right-click menu. |
 | Notifications | Tells you when a mirror is finished or needs your attention. |
-| Access to the hosting services' sites (gofile.io, catbox.moe, buzzheavier.com, vikingfile.com, pixeldrain.com, clicknupload.click, send.now, dailyuploads.net, hexload.com) | Uploads files to those services and checks the keys you add. |
+| Access to the hosting services' sites (gofile.io, catbox.moe, buzzheavier.com, vikingfile.com, 1fichier.com, fileditch.com, pixeldrain.com, clicknupload.click, send.now, dailyuploads.net, hexload.com) | Uploads files to those services and checks the keys you add. |
 | Access to all sites (asked the first time you mirror) | Downloads the file from whichever site your link points to. Only used for links you mirror. |
 
 ## Deleting your data

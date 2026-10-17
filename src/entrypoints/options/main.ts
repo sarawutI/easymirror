@@ -155,13 +155,16 @@ async function pixeldrainCard() {
 /** Hosts with nothing to configure, in one card. */
 function noSetupCard() {
   const kraken = krakenfilesEnabled(import.meta.env.MODE);
+  const names = ['Buzzheavier', 'VikingFile', '1Fichier', 'FileDitch', ...(kraken ? ['Krakenfiles'] : [])];
   return card(
     'nosetup',
-    kraken ? 'Buzzheavier, VikingFile, Krakenfiles' : 'Buzzheavier, VikingFile',
+    names.join(', '),
     { text: 'No account needed' },
     h('p', {
       className: 'hint',
-      textContent: `These work straight away, with nothing to set up.${kraken ? ' Krakenfiles takes files up to 1 GB.' : ''}`,
+      textContent:
+        'These work straight away, with nothing to set up. 1Fichier takes files up to 300 GB, FileDitch up to 150 GB' +
+        (kraken ? ', Krakenfiles up to 1 GB.' : '.'),
     }),
     h('p', {
       className: 'hint',

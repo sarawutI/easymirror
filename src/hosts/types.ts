@@ -5,6 +5,8 @@ export type DestinationId =
   | 'catbox'
   | 'buzzheavier'
   | 'vikingfile'
+  | 'onefichier'
+  | 'fileditch'
   | 'krakenfiles'
   | 'pixeldrain'
   | 'clicknupload'

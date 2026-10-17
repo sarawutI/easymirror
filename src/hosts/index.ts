@@ -1,9 +1,11 @@
 import { krakenfilesEnabled, oauthHostsEnabled } from '@/features';
 import { buzzheavier } from './buzzheavier';
 import { catbox } from './catbox';
+import { fileditch } from './fileditch';
 import { gofile } from './gofile';
 import { googledrive } from './googledrive';
 import { krakenfiles } from './krakenfiles';
+import { onefichier } from './onefichier';
 import { pixeldrain } from './pixeldrain';
 import type { Destination, DestinationId } from './types';
 import { vikingfile } from './vikingfile';
@@ -19,6 +21,8 @@ export const destinations: Destination[] = [
   catbox,
   buzzheavier,
   vikingfile,
+  onefichier,
+  fileditch,
   ...(krakenfilesEnabled(import.meta.env.MODE) ? [krakenfiles] : []),
   pixeldrain,
   ...xfsDestinations,

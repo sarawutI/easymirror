@@ -33,6 +33,8 @@ export default defineConfig({
         'https://catbox.moe/*',
         'https://*.buzzheavier.com/*',
         'https://*.vikingfile.com/*',
+        'https://*.1fichier.com/*',
+        'https://*.fileditch.com/*',
         // Krakenfiles' site, and the domain of its upload servers.
         ...(krakenfilesEnabled(mode) ? ['https://*.krakenfiles.com/*', 'https://*.krakencloud.net/*'] : []),
         'https://pixeldrain.com/*',

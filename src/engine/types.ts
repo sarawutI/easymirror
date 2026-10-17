@@ -10,8 +10,21 @@ export interface FetchSpec {
 export interface UploadSpec {
   /** Destination id (or a test label); keys the job's upload state. */
   label: string;
-  kind: 'put' | 'multipart';
+  /** 'chunked' sends the file in pieces, then calls a finish URL (see `chunked`). */
+  kind: 'put' | 'multipart' | 'chunked';
+  /** Where the file goes; for 'chunked', the host's upload page (only used in messages). */
   url: string;
+  /** chunked only */
+  chunked?: {
+    chunkSize: number;
+    /** Each piece's URL; "{index}" is replaced with the 0-based piece number. */
+    chunkUrl: string;
+    /** Pieces are sent as the raw request body. */
+    method: 'PUT' | 'POST';
+    headers?: Record<string, string>;
+    /** POSTed after the last piece; its answer goes to parseResponse. */
+    finishUrl: string;
+  };
   headers?: Record<string, string>;
   /** multipart only: form field that carries the file */
   field?: string;

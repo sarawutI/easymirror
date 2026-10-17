@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { buzzheavier } from './buzzheavier';
 import { catbox } from './catbox';
+import { fileditch } from './fileditch';
 import { gofile } from './gofile';
 import { krakenfiles } from './krakenfiles';
+import { onefichier } from './onefichier';
 import { pixeldrain } from './pixeldrain';
 import { vikingfile } from './vikingfile';
 import { verifyXfsKey, XFS_SITES, xfsDestination } from './xfilesharing';
@@ -157,6 +159,84 @@ describe('vikingfile', () => {
   it('returns the link from the answer', async () => {
     const body = JSON.stringify({ name: 'a.bin', size: 1, hash: 'TPRS', url: 'https://vikingfile.com/f/TPRS' });
     await expect(vikingfile.parseResponse(200, body)).resolves.toBe('https://vikingfile.com/f/TPRS');
+  });
+});
+
+describe('1fichier', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('caps files at 300 GB', () => {
+    expect(onefichier.check({ name: 'a.bin', size: 300 * 1024 ** 3 })).toBeUndefined();
+    expect(onefichier.check({ name: 'a.bin', size: 301 * 1024 ** 3 })).toMatch(/up to 300 GB/);
+  });
+
+  it('uploads file[] to the node it is given, remembering the upload id', async () => {
+    stubFetch({ '/get_upload_server.cgi': { url: 'up2.1fichier.com', id: 'qvHUyGyOoG' } });
+    const spec = await onefichier.buildUpload({ name: 'a.bin' });
+    expect(spec).toMatchObject({
+      kind: 'multipart',
+      url: 'https://up2.1fichier.com/upload.cgi?id=qvHUyGyOoG',
+      field: 'file[]',
+      meta: { node: 'https://up2.1fichier.com', id: 'qvHUyGyOoG' },
+    });
+  });
+
+  it('asks end.pl for the links as JSON', async () => {
+    const fetchMock = stubFetch({ '/end.pl': { links: [{ download: 'https://1fichier.com/?abcef' }] } });
+    const meta = { node: 'https://up2.1fichier.com', id: 'X1' };
+    await expect(onefichier.parseResponse(200, '<html>report</html>', meta)).resolves.toBe('https://1fichier.com/?abcef');
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://up2.1fichier.com/end.pl?xid=X1');
+    expect(init.headers).toEqual({ JSON: '1' });
+  });
+
+  it('reports a refused upload without asking for links', async () => {
+    const fetchMock = stubFetch({});
+    await expect(onefichier.parseResponse(403, '<p>Forbidden', { node: 'n', id: 'i' })).rejects.toThrow(/refused the upload \(HTTP 403\)/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('fileditch', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("skips what FileDitch's own page rejects", () => {
+    expect(fileditch.check({ name: 'setup.exe', size: 5 })).toMatch(/doesn't accept \.exe/);
+    expect(fileditch.check({ name: 'page.html', size: 5 })).toMatch(/doesn't accept \.html/);
+    expect(fileditch.check({ name: 'empty.txt', size: 0 })).toMatch(/empty files/);
+    expect(fileditch.check({ name: 'huge.bin', size: 151 * 1024 ** 3 })).toMatch(/up to 150 GB/);
+    expect(fileditch.check({ name: 'clip.mp4', size: 5 })).toBeUndefined();
+  });
+
+  it('needs the size up front', () => {
+    expect(fileditch.check({ name: 'clip.mp4' })).toMatch(/needs the file size/);
+  });
+
+  it('starts an upload and describes its pieces', async () => {
+    const fetchMock = stubFetch({ 'action=init': { success: true, id: 'u1', chunk_size: 52428800, total_chunks: 3 } });
+    const spec = await fileditch.buildUpload({ name: 'my clip.mp4', size: 120 * MB });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://new.fileditch.com/chunked.php?action=init&filename=my%20clip.mp4&size=125829120');
+    expect(spec).toMatchObject({
+      kind: 'chunked',
+      chunked: {
+        chunkSize: 52428800,
+        method: 'PUT',
+        chunkUrl: 'https://new.fileditch.com/chunked.php?action=chunk&id=u1&i={index}',
+        finishUrl: 'https://new.fileditch.com/chunked.php?action=finish&id=u1',
+      },
+    });
+  });
+
+  it('explains when the upload cannot start', async () => {
+    stubFetch({ 'action=init': { success: false, error: 'uploads paused' } });
+    await expect(fileditch.buildUpload({ name: 'a.zip', size: 10 })).rejects.toThrow(/couldn't start the upload \(uploads paused\)/);
+  });
+
+  it('returns the link from the finish answer', async () => {
+    const ok = JSON.stringify({ success: true, url: 'https://fileditch.com/f/ab12/a.zip' });
+    await expect(fileditch.parseResponse(200, ok)).resolves.toBe('https://fileditch.com/f/ab12/a.zip');
+    const incomplete = JSON.stringify({ success: false, error: 'incomplete', missing: [2] });
+    await expect(fileditch.parseResponse(409, incomplete)).rejects.toThrow(/refused the upload \(incomplete\)/);
   });
 });
 
