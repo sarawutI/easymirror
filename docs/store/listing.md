@@ -121,8 +121,15 @@ Tick all three certifications. They should read roughly as below; check the dash
 ### Images
 
 - Store icon: `public/icon/128.png` (already in the repo).
-- Screenshots: 1–5 at **1280×800** (or 640×400). Not made yet.
-- Small promo tile: **440×280**. Not made yet.
+- Screenshots, **1280×800**, upload in this order:
+  1. `store-assets/1-mirror-a-link.png`
+  2. `store-assets/2-download-pages.png`
+  3. `store-assets/3-big-files.png`
+  4. `store-assets/4-your-accounts.png`
+- Small promo tile, **440×280**: `store-assets/promo-tile-440x280.png`
+- Edge and Firefox accept the same screenshots.
+
+The links and file names in them are sample data. Regenerate with `npm run store-images`.
 
 ---
 

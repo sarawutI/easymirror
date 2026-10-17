@@ -19,7 +19,7 @@
 - [ ] Publish the privacy policy at a public URL.
 - [ ] Send the Catbox courtesy email (draft in listing.md) and wait for a reply.
 - [ ] Test Pixeldrain with a real API key (still untested against the real service).
-- [ ] Make screenshots (1280×800) and a small promo tile (440×280).
+- [x] Make screenshots (1280×800) and a small promo tile (440×280): in [store-assets/](../../store-assets/). Regenerate them with `npm run store-images` after UI changes.
 - [ ] Bump the version in `package.json` to `1.0.0`, then run `npm run build` and `npx wxt zip`.
 - [ ] Create the developer account(s) and submit.
 - [ ] Firefox only: finish the Firefox build (M5), add `browser_specific_settings` (see listing.md), submit with source.

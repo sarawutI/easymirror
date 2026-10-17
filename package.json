@@ -12,7 +12,8 @@
     "spike:run": "node spikes/run-spikes.mjs",
     "test": "vitest run",
     "test:e2e": "wxt build --mode spike && node tests/e2e/e2e.mjs",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "store-images": "wxt build && node scripts/store-screenshots.mjs"
   },
   "devDependencies": {
     "busboy": "1.6.0",
