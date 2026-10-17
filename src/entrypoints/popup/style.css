@@ -121,6 +121,23 @@ fieldset {
   font-size: 12px;
 }
 
+.dest.unavailable {
+  cursor: default;
+}
+
+.dest.unavailable > span {
+  color: var(--muted);
+}
+
+.inline-link {
+  color: var(--accent);
+}
+
+.header-link {
+  margin-left: auto;
+  font-size: 13px;
+}
+
 button {
   font: inherit;
   cursor: pointer;

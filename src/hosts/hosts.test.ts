@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { catbox } from './catbox';
 import { gofile } from './gofile';
+import { pixeldrain } from './pixeldrain';
+import { numberedName } from './yandex';
 
 const MB = 1024 * 1024;
 
@@ -74,5 +76,41 @@ describe('gofile', () => {
 
   it('rejects a non-JSON answer', async () => {
     await expect(gofile.parseResponse(502, '<html>Bad gateway</html>')).rejects.toThrow(/unexpected answer \(HTTP 502\)/);
+  });
+});
+
+describe('pixeldrain', () => {
+  beforeEach(() => fakeBrowser.reset());
+
+  it('asks for the API key when none is saved', async () => {
+    await expect(pixeldrain.buildUpload({ name: 'a.bin' })).rejects.toThrow(/Add your Pixeldrain API key/);
+  });
+
+  it('PUTs the file with the key as the Basic-auth password', async () => {
+    await browser.storage.local.set({ 'accounts.pixeldrain': { secret: 'k3y' } });
+    const spec = await pixeldrain.buildUpload({ name: 'my file.txt' });
+    expect(spec).toMatchObject({ kind: 'put', headers: { Authorization: `Basic ${btoa(':k3y')}` } });
+    expect(spec.url).toMatch(/\/file\/my%20file\.txt$/);
+  });
+
+  it('builds the share link from the id', async () => {
+    await expect(pixeldrain.parseResponse(201, JSON.stringify({ success: true, id: 'abc' }))).resolves.toBe('https://pixeldrain.com/u/abc');
+  });
+
+  it('maps error codes to readable messages', async () => {
+    const err = (value: string, status = 400) => pixeldrain.parseResponse(status, JSON.stringify({ success: false, value }));
+    await expect(err('user_out_of_space')).rejects.toThrow('Your Pixeldrain storage is full');
+    await expect(err('file_too_large', 413)).rejects.toThrow('Too big for your Pixeldrain plan');
+    await expect(err('email_address_not_verified', 403)).rejects.toThrow(/Verify your email/);
+    await expect(err('something_new')).rejects.toThrow(/something_new/);
+  });
+});
+
+describe('yandex numberedName', () => {
+  it('numbers before the extension', () => {
+    expect(numberedName('clip.mp4', 0)).toBe('clip.mp4');
+    expect(numberedName('clip.mp4', 2)).toBe('clip (2).mp4');
+    expect(numberedName('README', 1)).toBe('README (1)');
+    expect(numberedName('archive.tar.gz', 1)).toBe('archive.tar (1).gz');
   });
 });

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="manifest.open_in_tab" content="true" />
+    <title>EasyMirror settings</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <img src="/icon/32.png" alt="" width="20" height="20" />
+      <h1>EasyMirror settings</h1>
+    </header>
+    <p class="hint">
+      Accounts and keys are stored only in this browser and are sent only to the host they belong to.
+    </p>
+
+    <div id="hosts"></div>
+
+    <details class="dev">
+      <summary>Developer details</summary>
+      <p class="hint">Sign-in redirect URL (register this with Google and Yandex):</p>
+      <code id="redirect-url"></code>
+      <p class="hint">See docs/account-setup.md for the one-time setup.</p>
+    </details>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

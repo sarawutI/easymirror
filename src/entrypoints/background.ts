@@ -1,5 +1,5 @@
 import type { Browser } from 'wxt/browser';
-import type { EngineEvent, FetchSpec, FileInfo, JobState, TransferJob, UploadPlan, UploadSpec } from '@/engine/types';
+import type { EngineEvent, FetchSpec, FileInfo, JobState, TransferJob, UploadPlan, UploadSpec, UploadState } from '@/engine/types';
 import { destinationById } from '@/hosts';
 import { getJob, getSettings, isFinished, listJobs, patchJob, summarize } from '@/jobs/store';
 
@@ -104,17 +104,27 @@ async function startMirror(url: string, destinationIds: string[]): Promise<strin
 async function planUploads(id: string, info: FileInfo): Promise<UploadPlan> {
   const job = await getJob(id);
   const uploads: UploadSpec[] = [];
-  const skipped: Record<string, string> = {};
-  for (const destId of Object.keys(job?.uploads ?? {})) {
-    const dest = destinationById(destId);
-    if (!dest) continue;
-    const reason = dest.check(info);
-    if (reason) skipped[destId] = reason;
-    else uploads.push(await dest.buildUpload(info));
-  }
-  await patchJob(id, (j) => {
-    for (const [destId, reason] of Object.entries(skipped)) j.uploads[destId] = { sent: 0, done: true, skipped: reason };
-  });
+  const outcome: Record<string, UploadState> = {};
+  // Hosts are prepared in parallel; one failing (e.g. signed out) doesn't stop the rest.
+  await Promise.all(
+    Object.keys(job?.uploads ?? {}).map(async (destId) => {
+      const dest = destinationById(destId);
+      if (!dest) return;
+      const reason = dest.check(info);
+      if (reason) {
+        outcome[destId] = { sent: 0, done: true, skipped: reason };
+        return;
+      }
+      try {
+        const spec = await dest.buildUpload(info);
+        uploads.push(spec);
+        outcome[destId] = { sent: 0, done: false, meta: spec.meta };
+      } catch (e) {
+        outcome[destId] = { sent: 0, done: true, error: String((e as Error).message ?? e) };
+      }
+    }),
+  );
+  await patchJob(id, (j) => Object.assign(j.uploads, outcome));
   return { uploads };
 }
 
@@ -255,15 +265,16 @@ async function handleEngineEvent(ev: EngineEvent): Promise<unknown> {
   } else if (ev.type === 'upload-update') {
     const patch = { ...ev.patch };
     const dest = destinationById(ev.label);
+    const meta = (await getJob(ev.id))?.uploads[ev.label]?.meta;
     if (patch.done && !patch.error && !patch.skipped && dest) {
       try {
-        patch.link = await dest.parseResponse(patch.status ?? 0, patch.response ?? '');
+        patch.link = await dest.parseResponse(patch.status ?? 0, patch.response ?? '', meta);
       } catch (e) {
         patch.error = String((e as Error).message ?? e);
       }
     }
     const job = await patchJob(ev.id, (j) => {
-      j.uploads[ev.label] = patch;
+      j.uploads[ev.label] = { ...patch, meta };
     });
     await maybeFinish(job);
   } else if (ev.type === 'source-ok' || ev.type === 'source-failed') {

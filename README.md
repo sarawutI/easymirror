@@ -2,7 +2,9 @@
 
 Browser extension that mirrors a file from a link to your own storage hosts: paste a link (or right-click one), pick destinations, get share links back.
 
-Status: direct file links **and download pages** (e.g. `gofile.io/d/…`) to GoFile and Catbox. See [docs/plan.md](docs/plan.md) for what's next.
+Status: direct file links **and download pages** (e.g. `gofile.io/d/…`) to GoFile, Catbox and Pixeldrain. Pixeldrain needs the user's API key (Settings page). See [docs/plan.md](docs/plan.md) for what's next.
+
+Google Drive and Yandex.Disk support is built and tested but **switched off** in release builds (`OAUTH_HOSTS_ENABLED` in [src/features.ts](src/features.ts)). They need a one-time app registration with Google and Yandex first: [docs/account-setup.md](docs/account-setup.md). Test builds always include them.
 
 ## Try it
 
@@ -42,7 +44,9 @@ src/
     background.ts      job manager, right-click menu, notifications, page flow
     offscreen/         transfer engine (download to browser disk, upload with progress)
     popup/             the popup UI
+    options/           Settings page: connect accounts and keys
     spike/             test control page (spike builds only)
+  accounts/            stored credentials and OAuth sign-in (Google, Yandex)
   engine/              transfer code and shared types
   hosts/               one file per host: limits, request format, response → link
   jobs/store.ts        job state and settings in browser storage

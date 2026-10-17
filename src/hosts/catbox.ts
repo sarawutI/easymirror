@@ -6,12 +6,18 @@ import type { Destination } from './types';
 const MAX_BYTES = 200 * 1024 * 1024;
 const MAX_GIF_BYTES = 20 * 1024 * 1024;
 const BLOCKED = ['exe', 'scr', 'cpl', 'jar'];
+/** Optional: the user's Catbox userhash, so uploads are kept permanently. */
+export const USERHASH_KEY = 'hosts.catbox.userhash';
 
 export const catbox: Destination = {
   id: 'catbox',
   label: 'Catbox',
   note: 'No account needed · up to 200 MB',
   maxBytes: MAX_BYTES,
+
+  async connected() {
+    return true;
+  },
 
   check({ name, size }) {
     const ext = extensionOf(name);
@@ -22,12 +28,13 @@ export const catbox: Destination = {
   },
 
   async buildUpload() {
+    const userhash = (await browser.storage.local.get(USERHASH_KEY))[USERHASH_KEY] as string | undefined;
     return {
       label: 'catbox',
       kind: 'multipart',
       url: endpoints.catboxApi,
       field: 'fileToUpload',
-      fields: { reqtype: 'fileupload' },
+      fields: { reqtype: 'fileupload', ...(userhash ? { userhash } : {}) },
       maxBytes: MAX_BYTES,
     };
   },

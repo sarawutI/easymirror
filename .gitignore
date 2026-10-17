@@ -4,3 +4,4 @@ node_modules/
 spikes/results.json
 tests/e2e/*.png
 *.log
+.env.local

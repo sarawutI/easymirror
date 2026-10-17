@@ -45,19 +45,41 @@ function selectedDestinations(): DestinationId[] {
   return [...destBox.querySelectorAll<HTMLInputElement>('input:checked')].map((i) => i.value as DestinationId);
 }
 
+function settingsLink(text: string) {
+  const a = h('a', { href: '#', className: 'inline-link', textContent: text });
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    void browser.runtime.openOptionsPage();
+  });
+  return a;
+}
+
 async function renderDestinations() {
   const { destinations: chosen } = await getSettings();
+  const connected = await Promise.all(destinations.map((d) => d.connected()));
   destBox.replaceChildren(
-    ...destinations.map((d) =>
-      h(
+    ...destinations.map((d, i) => {
+      const ready = connected[i];
+      // Hosts that need the user's account stay off until it's connected.
+      return h(
         'label',
-        { className: 'dest' },
-        h('input', { type: 'checkbox', value: d.id, checked: chosen.includes(d.id) }),
-        h('span', {}, d.label, h('span', { className: 'dest-note' }, d.note)),
-      ),
-    ),
+        { className: `dest${ready ? '' : ' unavailable'}` },
+        h('input', { type: 'checkbox', value: d.id, checked: ready && chosen.includes(d.id), disabled: !ready }),
+        h(
+          'span',
+          {},
+          d.label,
+          h('span', { className: 'dest-note' }, ready ? d.note : 'Needs your account · ', !ready && settingsLink('Set up in Settings')),
+        ),
+      );
+    }),
   );
 }
+
+// Accounts change on the settings page; refresh which hosts can be picked.
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && Object.keys(changes).some((k) => k.startsWith('accounts.'))) void renderDestinations();
+});
 
 destBox.addEventListener('change', () => {
   const chosen = selectedDestinations();
@@ -301,6 +323,7 @@ if (params.size) document.body.classList.add('in-tab');
 const prefill = params.get('url');
 if (prefill) urlInput.value = prefill;
 
+document.getElementById('open-settings')!.addEventListener('click', () => void browser.runtime.openOptionsPage());
 if (pickJobId) void setUpPicker(pickJobId);
 void browser.permissions.contains(ALL_SITES).then((granted) => (permissionHint.hidden = granted));
 void renderDestinations();

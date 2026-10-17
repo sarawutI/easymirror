@@ -46,18 +46,23 @@ try {
   await popup.goto(`chrome-extension://${extId}/popup.html`);
 
   /** Mirrors a link through the popup UI and returns the finished job card's text. */
-  async function mirror(link, { destinations = ['gofile', 'catbox'] } = {}) {
-    for (const id of ['gofile', 'catbox']) {
-      const box = popup.locator(`#destinations input[value="${id}"]`);
-      if ((await box.isChecked()) !== destinations.includes(id)) await box.click();
+  /** Ticks exactly `destinations` (hosts without a connected account can't be ticked). */
+  async function choose(destinations) {
+    for (const box of await popup.locator('#destinations input').all()) {
+      if (await box.isDisabled()) continue;
+      const want = destinations.includes(await box.getAttribute('value'));
+      if ((await box.isChecked()) !== want) await box.click();
     }
+  }
+
+  async function mirror(link, { destinations = ['gofile', 'catbox'] } = {}) {
+    await choose(destinations);
     const before = await popup.locator('#jobs > .job').count();
     await popup.fill('#url', link);
     await popup.click('#mirror');
     await popup.waitForFunction((n) => document.querySelectorAll('#jobs > .job').length > n, before, { timeout: 10_000 });
     const card = popup.locator('#jobs > .job').first();
-    // Finished cards have no progress bar.
-    await card.locator('progress').waitFor({ state: 'detached', timeout: 60_000 });
+    await settledCard(['done', 'error']);
     return {
       status: await card.locator('.job-status').innerText(),
       uploads: Object.fromEntries(
@@ -118,10 +123,7 @@ try {
 
   /** Pastes a link in the popup and returns the tab EasyMirror opens for it. */
   async function pastePageLink(link, destinations = ['gofile', 'catbox']) {
-    for (const id of ['gofile', 'catbox']) {
-      const box = popup.locator(`#destinations input[value="${id}"]`);
-      if ((await box.isChecked()) !== destinations.includes(id)) await box.click();
-    }
+    await choose(destinations);
     const tabPromise = context.waitForEvent('page');
     await popup.fill('#url', link);
     await popup.click('#mirror');
@@ -131,20 +133,23 @@ try {
   }
 
   /** Waits until the newest job reaches one of `statuses` in storage (with uploads settled), then lets the popup re-render. */
-  async function settledCard(statuses = ['done', 'error', 'fallback-needed']) {
-    await popup.waitForFunction(
-      async (statuses) => {
+  async function settledCard(statuses = ['done', 'error', 'fallback-needed'], timeoutMs = 60_000) {
+    // Poll from Node: page.waitForFunction doesn't await async predicates.
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const settled = await popup.evaluate(async (statuses) => {
         const all = await chrome.storage.local.get(null);
         const job = Object.entries(all)
           .filter(([k]) => k.startsWith('job:'))
           .map(([, v]) => v)
           .sort((a, b) => b.startedAt - a.startedAt)[0];
-        return job && statuses.includes(job.status) && (job.status !== 'done' || Object.values(job.uploads).every((u) => u.done));
-      },
-      statuses,
-      { timeout: 60_000, polling: 250 },
-    );
-    await popup.waitForTimeout(300);
+        return !!job && statuses.includes(job.status) && (job.status !== 'done' || Object.values(job.uploads).every((u) => u.done));
+      }, statuses);
+      if (settled) break;
+      if (Date.now() > deadline) throw new Error(`newest job did not reach ${statuses.join('/')} in time`);
+      await popup.waitForTimeout(250);
+    }
+    await popup.waitForTimeout(300); // let the popup re-render
   }
 
   async function finishedCard() {
@@ -238,6 +243,85 @@ try {
     await card().getByRole('button', { name: 'Cancel' }).click();
     await popup.locator('#jobs > .job .job-status').first().filter({ hasText: 'Cancelled' }).waitFor({ timeout: 10_000 });
     await tab.close();
+  });
+
+  // --- Accounts (Pixeldrain, Google Drive, Yandex.Disk) -----------------------
+
+  const setStorage = (items) => popup.evaluate((items) => chrome.storage.local.set(items), items);
+  const HOUR = 3600_000;
+
+  await test('hosts that need an account are off until connected', async () => {
+    for (const id of ['pixeldrain', 'googledrive', 'yandex']) {
+      assert.equal(await popup.locator(`#destinations input[value="${id}"]`).isDisabled(), true, id);
+    }
+    assert.match(await popup.locator('#destinations').innerText(), /Set up in Settings/);
+  });
+
+  await test('settings: a wrong Pixeldrain key is rejected, the right one connects', async () => {
+    const settings = await context.newPage();
+    await settings.goto(`chrome-extension://${extId}/options.html`);
+    const host = settings.locator('#host-pixeldrain');
+    await host.locator('input[type=password]').fill('wrong-key');
+    await host.getByRole('button', { name: 'Save' }).click();
+    await host.locator('[role=status]').filter({ hasText: "doesn't work" }).waitFor({ timeout: 5000 });
+    await host.locator('input[type=password]').fill('test-key');
+    await host.getByRole('button', { name: 'Save' }).click();
+    await settings.locator('#host-pixeldrain .state').filter({ hasText: 'Connected as tester' }).waitFor({ timeout: 5000 });
+    // Without client IDs in this build, Google/Yandex explain the missing setup.
+    assert.match(await settings.locator('#host-googledrive').innerText(), /one-time developer setup/);
+    await settings.close();
+  });
+
+  await test('mirrors to Pixeldrain, Google Drive and Yandex.Disk with share links', async () => {
+    // Stand-in for finishing Google/Yandex sign-in (the OAuth screens can't run offline).
+    await setStorage({
+      'accounts.google': { secret: 'test-token', expiresAt: Date.now() + HOUR, label: 'tester@example.com' },
+      'accounts.yandex': { secret: 'test-token', label: 'Tester' },
+    });
+    await popup.waitForFunction(() => !document.querySelector('#destinations input[value="yandex"]')?.disabled, null, { timeout: 5000 });
+    const r = await mirror(`${BASE}/file/holiday.mp4?size=${4 * MB}`, { destinations: ['pixeldrain', 'googledrive', 'yandex'] });
+    assert.equal(r.status, '3 links ready');
+    assert.match(r.uploads.Pixeldrain, /^https:\/\/pixeldrain\.com\/u\/\w+$/);
+    assert.match(r.uploads['Google Drive'], /^https:\/\/drive\.google\.com\/file\/d\/file-\w+\/view$/);
+    assert.match(r.uploads['Yandex.Disk'], /^https:\/\/yadi\.sk\/d\/\w+$/);
+    const s = await stats();
+    const src = s.served['holiday.mp4'].sha256;
+    assert.equal(s.received['pixeldrain:holiday.mp4'].sha256, src);
+    assert.equal(s.received['googledrive:holiday.mp4'].sha256, src);
+    assert.equal(s.received['yandex:app:/holiday.mp4'].sha256, src);
+    assert.deepEqual(s.hosts.driveFolders, ['folder-1'], 'one EasyMirror folder created');
+    assert.deepEqual(s.hosts.driveShared.map((x) => x.type), ['anyone'], 'Drive file shared by link');
+    assert.ok(s.hosts.yandexPublished.includes('app:/holiday.mp4'), 'Yandex file published');
+  });
+
+  await test('Yandex: a second file with the same name gets a numbered name', async () => {
+    const r = await mirror(`${BASE}/file/holiday.mp4?size=${MB}`, { destinations: ['yandex'] });
+    assert.equal(r.status, 'Link ready');
+    assert.ok((await stats()).received['yandex:app:/holiday (1).mp4']);
+  });
+
+  await test('Drive: reuses its folder, and link sharing can be turned off', async () => {
+    await setStorage({ 'hosts.googledrive.shareLink': false });
+    const r = await mirror(`${BASE}/file/private.txt?size=1000`, { destinations: ['googledrive'] });
+    assert.equal(r.status, 'Link ready');
+    const s = await stats();
+    assert.deepEqual(s.hosts.driveFolders, ['folder-1']);
+    assert.equal(s.hosts.driveShared.length, 1, 'not shared this time');
+    await setStorage({ 'hosts.googledrive.shareLink': true });
+  });
+
+  await test('an expired Google sign-in asks to reconnect; other hosts still get the file', async () => {
+    await setStorage({ 'accounts.google': { secret: 'test-token', expiresAt: Date.now() - 1000, label: 'tester@example.com' } });
+    const r = await mirror(`${BASE}/file/late.bin?size=${MB}`, { destinations: ['pixeldrain', 'googledrive'] });
+    assert.equal(r.status, '1 of 2 links ready');
+    assert.match(r.uploads['Google Drive'], /sign-in has expired\. Reconnect it in EasyMirror settings/);
+    assert.match(r.uploads.Pixeldrain, /^https:\/\/pixeldrain\.com\/u\//);
+  });
+
+  await test('a revoked Pixeldrain key gives a clear message', async () => {
+    await setStorage({ 'accounts.pixeldrain': { secret: 'revoked', label: 'tester' } });
+    const r = await mirror(`${BASE}/file/again.bin?size=1000`, { destinations: ['pixeldrain'] });
+    assert.match(r.uploads.Pixeldrain, /rejected your API key/);
   });
 
   await test('explains when the source link is broken', async () => {

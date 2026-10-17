@@ -19,6 +19,8 @@ export interface UploadSpec {
   fields?: Record<string, string>;
   /** Checked again after download, for sources that don't send a size up front. */
   maxBytes?: number;
+  /** Destination's own notes for its parseResponse step (e.g. the saved path). */
+  meta?: Record<string, string>;
 }
 
 /** What the engine learns about a file once the source answers. */
@@ -63,6 +65,8 @@ export interface UploadState {
   /** Why this destination was left out, e.g. "Catbox takes files up to 200 MB". */
   skipped?: string;
   link?: string;
+  /** Copied from the UploadSpec at planning time, for parseResponse. */
+  meta?: Record<string, string>;
 }
 
 export interface JobState {

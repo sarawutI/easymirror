@@ -1,0 +1,111 @@
+@import '../popup/style.css';
+
+body {
+  width: auto;
+  max-width: 560px;
+  margin: 24px auto;
+  padding: 0 16px 32px;
+}
+
+.host {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.host-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.host h2 {
+  color: var(--text);
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.state {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.state.ok {
+  color: var(--ok);
+}
+
+.host p {
+  margin: 6px 0 0;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.row input[type='password'],
+.row input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.primary {
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.plain {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.primary:disabled,
+.plain:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-weight: 400;
+}
+
+.dev {
+  margin-top: 24px;
+  color: var(--muted);
+}
+
+.dev code {
+  display: block;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  word-break: break-all;
+}
+
+a {
+  color: var(--accent);
+}

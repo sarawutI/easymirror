@@ -106,7 +106,7 @@ Plus a **generic direct-URL source**: any link that returns a file directly.
 - WXT project, popup, context menu, job manager, generic direct-URL source.
 - GoFile and Catbox destinations. End-to-end: paste link → links come back.
 
-**M2 — Accounts**
+**M2 — Accounts** — built 2026-10-17 on branch `m2-accounts`, tested against mock hosts. **Decision (2026-10-17): the first public release ships GoFile, Catbox and Pixeldrain only.** Google Drive and Yandex.Disk are finished and tested but switched off (`OAUTH_HOSTS_ENABLED` in `src/features.ts`). Turn them on in a later update after the one-time app registration in [account-setup.md](account-setup.md) and Google's review.
 - Settings page. Pixeldrain (API key), Google Drive and Yandex.Disk (OAuth).
 
 **M3 — Sources** — page flow pulled forward and done 2026-10-17: paste a download-page link, "catch the next download on this page" (popup button + page right-click), JS-triggered and form downloads, choose-the-file fallback for single-use and blob: downloads, cancel, closed-tab handling. Still to do: host-specific resolvers (skip the page when a host has a public download API) and checks on real hosts.
@@ -128,6 +128,24 @@ Plus a **generic direct-URL source**: any link that returns a file directly.
 | Google OAuth app review | Medium | `drive.file` scope keeps review light; start the verification early |
 | Store reviewers see a "mirror tool" as piracy-adjacent | Medium | Clear description, users' own accounts, honest privacy policy |
 | Host blocks extension requests (CORS, headers) | Low–medium | Extensions with host permissions bypass CORS; test in M0/M1 |
+
+## Public release (decided 2026-10-17: EasyMirror will be published for anyone to use)
+
+The design already fits: there is no server, and every user signs in to their own accounts directly from their browser. What a public release adds:
+
+- **Google and Yandex app registration is a one-time publisher task.** Users never see it; they just click Connect. The client IDs ship inside the extension.
+- **Google: move the app from "Testing" to "In production".** Testing allows only 100 hand-picked test users. Production needs a privacy policy URL, a homepage and possibly brand verification. `drive.file` should count as a non-sensitive scope, so no paid security assessment; confirm this in the Google console.
+- **Each store assigns its own extension ID.** That means a different sign-in redirect URL for Chrome Web Store, Edge Add-ons and Firefox. Register all of them with Google and Yandex next to the dev ID `naicmlgekdnneapgfjkgialddpojebgd`.
+- **Store listings need:**
+  - a privacy policy (what's stored and where: keys and tokens stay in the browser, files go only to hosts the user picks),
+  - a justification for each permission, especially optional all-sites access and `webRequest`,
+  - screenshots and a clear description ("move files between your own storage accounts").
+- **Developer accounts:** Chrome Web Store (one-time fee), Edge Partner Center (free), Firefox Add-ons (free; reviewers ask for the source code and build steps because the code is bundled).
+- **Host terms:**
+  - Catbox forbids commercial use without approval. EasyMirror is free, but it's worth emailing the owner before launch.
+  - GoFile asks apps to reuse one account rather than create one per upload. EasyMirror already does this, one guest account per user.
+- **Upkeep:** hosts change their APIs (GoFile's is in beta), so plan on occasional fixes.
+- **Publisher contact:** Google and Yandex show the app's support email on the sign-in screen, so consider a dedicated address rather than a personal one.
 
 ## What you'll need to do (can't be done for you)
 - Create a **Google Cloud OAuth client** for Drive sign-in.

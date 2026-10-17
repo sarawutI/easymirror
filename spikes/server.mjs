@@ -72,6 +72,101 @@ function receiveMultipart(req, fileField, done) {
   req.pipe(bb);
 }
 
+// --- Account-based host stand-ins ---------------------------------------------
+// Accepted credentials: Pixeldrain key "test-key", Google/Yandex token "test-token".
+const json = (res, status, body, headers = {}) =>
+  res.writeHead(status, { 'Content-Type': 'application/json', ...headers }).end(JSON.stringify(body));
+const hosts = { driveShared: [], driveFolders: [], yandexFiles: new Set(), yandexPublished: [] };
+
+/** Hashes a raw request body into received[key]; then calls done(). */
+function receiveRaw(req, key, done) {
+  const hash = createHash('sha256');
+  let bytes = 0;
+  req.on('data', (c) => { hash.update(c); bytes += c.length; });
+  req.on('end', () => {
+    received[key] = { bytes, sha256: hash.digest('hex') };
+    done();
+  });
+}
+
+function mockPixeldrain(req, res, p) {
+  const auth = req.headers.authorization ?? '';
+  const ok = auth === `Basic ${Buffer.from(':test-key').toString('base64')}`;
+  if (!ok) return json(res, 401, { success: false, value: 'authentication_failed', message: 'Invalid API key' });
+  if (req.method === 'GET' && p === '/mock/pixeldrain/api/user') return json(res, 200, { username: 'tester' });
+  if (req.method === 'PUT' && p.startsWith('/mock/pixeldrain/api/file/')) {
+    const name = decodeURIComponent(p.slice('/mock/pixeldrain/api/file/'.length));
+    return receiveRaw(req, `pixeldrain:${name}`, () => json(res, 201, { success: true, id: randomBytes(4).toString('hex'), name }));
+  }
+  json(res, 404, { success: false, value: 'not_found' });
+}
+
+function mockGoogle(req, res, p, url) {
+  const authed = req.headers.authorization === 'Bearer test-token';
+  if (!authed) return json(res, 401, { error: { code: 401, message: 'Invalid Credentials' } });
+  const readBody = (cb) => {
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => cb(b ? JSON.parse(b) : {}));
+  };
+  if (req.method === 'GET' && p === '/mock/google/drive/v3/about') return json(res, 200, { user: { emailAddress: 'tester@example.com' } });
+  if (req.method === 'GET' && p === '/mock/google/drive/v3/files') return json(res, 200, { files: hosts.driveFolders.map((id) => ({ id })) });
+  if (req.method === 'POST' && p === '/mock/google/drive/v3/files') {
+    return readBody(() => {
+      const id = `folder-${hosts.driveFolders.length + 1}`;
+      hosts.driveFolders.push(id);
+      json(res, 200, { id });
+    });
+  }
+  if (req.method === 'POST' && p === '/mock/google/upload/drive/v3/files' && url.searchParams.get('uploadType') === 'resumable') {
+    return readBody((meta) => {
+      if (!hosts.driveFolders.includes(meta.parents?.[0])) return json(res, 404, { error: { code: 404, message: 'File not found' } });
+      const session = `http://127.0.0.1:${PORT}/mock/google/session/${encodeURIComponent(meta.name)}`;
+      res.writeHead(200, { Location: session }).end();
+    });
+  }
+  if (req.method === 'PUT' && p.startsWith('/mock/google/session/')) {
+    const name = decodeURIComponent(p.slice('/mock/google/session/'.length));
+    const id = `file-${randomBytes(4).toString('hex')}`;
+    return receiveRaw(req, `googledrive:${name}`, () => json(res, 200, { id, webViewLink: `https://drive.google.com/file/d/${id}/view` }));
+  }
+  const perm = /^\/mock\/google\/drive\/v3\/files\/([^/]+)\/permissions$/.exec(p);
+  if (req.method === 'POST' && perm) {
+    return readBody((body) => {
+      hosts.driveShared.push({ id: perm[1], ...body });
+      json(res, 200, { id: 'anyoneWithLink' });
+    });
+  }
+  json(res, 404, { error: { code: 404, message: 'not found' } });
+}
+
+function mockYandex(req, res, p, url) {
+  // The PUT to the upload URL needs no token, like the real uploader hosts.
+  if (req.method === 'PUT' && p.startsWith('/mock/yandex/uploader/')) {
+    const path = decodeURIComponent(p.slice('/mock/yandex/uploader/'.length));
+    return receiveRaw(req, `yandex:${path}`, () => {
+      hosts.yandexFiles.add(path);
+      res.writeHead(201).end();
+    });
+  }
+  if (req.headers.authorization !== 'OAuth test-token') return json(res, 401, { error: 'UnauthorizedError', description: 'Unauthorized' });
+  const path = url.searchParams.get('path');
+  if (req.method === 'GET' && p === '/mock/yandex/v1/disk/') return json(res, 200, { user: { login: 'tester', display_name: 'Tester' } });
+  if (req.method === 'GET' && p === '/mock/yandex/v1/disk/resources/upload') {
+    if (hosts.yandexFiles.has(path)) return json(res, 409, { error: 'DiskResourceAlreadyExistsError', description: 'Resource already exists' });
+    return json(res, 200, { href: `http://127.0.0.1:${PORT}/mock/yandex/uploader/${encodeURIComponent(path)}`, method: 'PUT', templated: false });
+  }
+  if (req.method === 'PUT' && p === '/mock/yandex/v1/disk/resources/publish') {
+    hosts.yandexPublished.push(path);
+    return json(res, 200, { href: `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(path)}`, method: 'GET' });
+  }
+  if (req.method === 'GET' && p === '/mock/yandex/v1/disk/resources') {
+    if (!hosts.yandexPublished.includes(path)) return json(res, 200, {});
+    return json(res, 200, { public_url: `https://yadi.sk/d/${createHash('md5').update(path).digest('hex').slice(0, 10)}` });
+  }
+  json(res, 404, { error: 'NotFound' });
+}
+
 function cookies(req) {
   return Object.fromEntries((req.headers.cookie ?? '').split(/;\s*/).filter(Boolean).map((c) => c.split('=')));
 }
@@ -153,6 +248,10 @@ createServer((req, res) => {
     });
   }
 
+  if (p.startsWith('/mock/pixeldrain/')) return mockPixeldrain(req, res, p, url);
+  if (p.startsWith('/mock/google/')) return mockGoogle(req, res, p, url);
+  if (p.startsWith('/mock/yandex/')) return mockYandex(req, res, p, url);
+
   if (req.method === 'PUT' && p.startsWith('/upload/put/')) {
     const name = decodeURIComponent(p.slice('/upload/put/'.length));
     const hash = createHash('sha256');
@@ -181,7 +280,7 @@ createServer((req, res) => {
 
   if (req.method === 'GET' && p === '/stats') {
     const tokenInfo = Object.fromEntries([...tokens].map(([k, v]) => [k, { name: v.name, used: v.used ?? 0, rejectedNoCookie: v.rejectedNoCookie ?? 0 }]));
-    return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ served, received, tokens: tokenInfo, gofileAuth }, null, 2));
+    return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ served, received, tokens: tokenInfo, gofileAuth, hosts: { ...hosts, yandexFiles: [...hosts.yandexFiles] } }, null, 2));
   }
 
   if (req.method === 'GET' && p === '/host/page') {
