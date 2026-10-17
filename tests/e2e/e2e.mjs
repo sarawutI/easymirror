@@ -49,9 +49,15 @@ try {
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extId}/popup.html`);
 
+  /** The "Mirror to" list folds into one line; open it to tick hosts. */
+  async function openHostList() {
+    if (!(await popup.locator('#dest-picker').evaluate((d) => d.open))) await popup.click('#dest-picker summary');
+  }
+
   /** Mirrors a link through the popup UI and returns the finished job card's text. */
   /** Ticks exactly `destinations` (hosts without a connected account can't be ticked). */
   async function choose(destinations) {
+    await openHostList();
     for (const box of await popup.locator('#destinations input').all()) {
       if (await box.isDisabled()) continue;
       const want = destinations.includes(await box.getAttribute('value'));
@@ -329,7 +335,7 @@ try {
       assert.equal(await popup.locator(`#destinations input[value="${id}"]`).count(), 0, id);
     }
     const more = await popup.locator('#destinations .dest-more').innerText();
-    assert.match(more, /With your own account: Pixeldrain, Clicknupload, Send\.now, Daily Uploads, HexUpload/);
+    assert.match(more, /Also with your own account: Pixeldrain, Clicknupload, Send\.now, Daily Uploads, HexUpload/);
     assert.match(more, /Set up in Settings/);
   });
 
@@ -491,6 +497,93 @@ try {
     await report.close();
   });
 
+  await test('a dropped download carries on from where it stopped', async () => {
+    const r = await mirror(`${BASE}/file/dropped.bin?size=${8 * MB}&drop=${4 * MB}`, { destinations: ['gofile'] });
+    assert.equal(r.status, 'Link ready');
+    const s = await stats();
+    assert.ok(s.served['dropped.bin'].resumedFrom > 0, 'the second request asked for the rest only');
+    assert.equal(s.received['gofile:dropped.bin'].sha256, s.served['dropped.bin'].sha256, 'the pieces add up to the whole file');
+  });
+
+  await test('a host answering with something that is not a link shows an error, not a link', async () => {
+    const r = await mirror(`${BASE}/file/badlink.txt?size=1000`, { destinations: ['gofile', 'catbox'] });
+    assert.equal(r.status, '1 of 2 links ready');
+    assert.match(r.uploads.GoFile, /GoFile answered with something that isn't a web link/);
+  });
+
+  await test('shows speed and time left, and Cancel stops a running download', async () => {
+    await choose(['gofile']);
+    await popup.fill('#url', `${BASE}/file/slow.bin?size=${20 * MB}&bps=${MB}`);
+    await popup.click('#mirror');
+    await card().locator('.job-status').filter({ hasText: /^Downloading .* · [\d.]+ (KB|MB)\/s · (about \d+ min|less than a minute) left$/ }).waitFor({ timeout: 10_000 });
+    await card().getByRole('button', { name: 'Cancel' }).click();
+    await card().locator('.job-status').filter({ hasText: 'Cancelled' }).waitFor({ timeout: 5000 });
+    assert.equal(await card().getByRole('button', { name: 'Report this problem' }).count(), 0, 'nothing to report');
+    const deadline = Date.now() + 5000;
+    while (!(await stats()).served['slow.bin#aborted']) {
+      if (Date.now() > deadline) throw new Error('the source download kept going');
+      await popup.waitForTimeout(100);
+    }
+    assert.equal(await popup.evaluate(() => chrome.action.getBadgeText({})), '');
+  });
+
+  await test('after a restart, a cut-off mirror says so, its temp file is deleted, and Try again finishes it', async () => {
+    const id = 'cut-off-job';
+    await popup.evaluate(async (id) => {
+      const now = Date.now();
+      await chrome.storage.local.set({
+        [`job:${id}`]: {
+          id,
+          status: 'uploading',
+          sourceUrl: 'http://127.0.0.1:8787/file/cut-off.bin?size=4096',
+          name: 'cut-off.bin',
+          downloaded: 4096,
+          size: 4096,
+          uploads: { gofile: { sent: 1000, done: false } },
+          startedAt: now,
+          updatedAt: now,
+        },
+      });
+      const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('jobs', { create: true });
+      const writable = await (await dir.getFileHandle(`${id}.part`, { create: true })).createWritable();
+      await writable.write(new Uint8Array(4096));
+      await writable.close();
+      await chrome.runtime.sendMessage({ type: 'simulate-startup' });
+    }, id);
+    await card().locator('.job-status').filter({ hasText: /^Interrupted: the browser closed/ }).waitFor({ timeout: 5000 });
+    const tempFiles = await popup.evaluate(async () => {
+      const root = await navigator.storage.getDirectory();
+      const dir = await root.getDirectoryHandle('jobs').catch(() => undefined);
+      let n = 0;
+      if (dir) for await (const _ of dir.keys()) n++;
+      return n;
+    });
+    assert.equal(tempFiles, 0, 'temp files removed');
+    await card().getByRole('button', { name: 'Try again' }).click();
+    await settledCard(['done', 'error']);
+    assert.equal(await card().locator('.job-status').innerText(), 'Link ready');
+    const s = await stats();
+    assert.equal(s.received['gofile:cut-off.bin'].sha256, s.served['cut-off.bin'].sha256);
+  });
+
+  await test('one finished mirror can be removed from the list', async () => {
+    const before = await popup.locator('#jobs > .job').count();
+    const firstId = await newestJobId();
+    await card().getByRole('button', { name: /^Remove .* from the list$/ }).click();
+    await popup.waitForFunction((n) => document.querySelectorAll('#jobs > .job').length === n - 1, before, { timeout: 5000 });
+    assert.equal(await popup.evaluate((id) => chrome.storage.local.get(`job:${id}`).then((r) => Object.keys(r).length), firstId), 0);
+  });
+
+  await test('the "Mirror to" list folds into one line naming the chosen hosts', async () => {
+    await choose(['gofile', 'buzzheavier']);
+    await popup.click('#dest-picker summary');
+    assert.equal(await popup.locator('#dest-picker').evaluate((d) => d.open), false);
+    assert.equal(await popup.locator('#dest-summary').innerText(), 'GoFile, Buzzheavier');
+    assert.equal(await popup.locator('#dest-toggle').innerText(), 'Change');
+    await popup.click('#dest-picker summary');
+    assert.deepEqual(await popup.locator('#destinations .dest-group').allInnerTexts(), ['NO ACCOUNT NEEDED', 'YOUR ACCOUNTS']);
+  });
+
   await test('popup footer links to the report page and the donation page', async () => {
     assert.equal(await popup.locator('#donate-link').getAttribute('href'), 'http://127.0.0.1:8787/mock/donate');
     const pagePromise = context.waitForEvent('page');
@@ -514,6 +607,7 @@ try {
     await popup.waitForSelector('#destinations input');
     assert.equal(await popup.locator('#destinations input[value="catbox"]').isChecked(), true);
     assert.equal(await popup.locator('#destinations input[value="gofile"]').isChecked(), false);
+    assert.match(await popup.locator('#dest-summary').innerText(), /^(?!.*GoFile).*Catbox/);
   });
 
   await popup.setViewportSize({ width: 380, height: 900 });

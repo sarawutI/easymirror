@@ -7,7 +7,6 @@ import type { Destination } from './types';
 export const vikingfile: Destination = {
   id: 'vikingfile',
   label: 'VikingFile',
-  note: 'No account needed',
 
   async connected() {
     return true;

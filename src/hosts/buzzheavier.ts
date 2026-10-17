@@ -7,7 +7,6 @@ import type { Destination } from './types';
 export const buzzheavier: Destination = {
   id: 'buzzheavier',
   label: 'Buzzheavier',
-  note: 'No account needed',
 
   async connected() {
     return true;

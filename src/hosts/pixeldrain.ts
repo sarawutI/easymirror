@@ -31,7 +31,6 @@ export async function verifyPixeldrainKey(key: string): Promise<string> {
 export const pixeldrain: Destination = {
   id: 'pixeldrain',
   label: 'Pixeldrain',
-  note: 'Your account (API key)',
   needsAccount: true,
 
   async connected() {

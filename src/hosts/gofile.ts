@@ -15,7 +15,6 @@ async function savedToken(): Promise<string | undefined> {
 export const gofile: Destination = {
   id: 'gofile',
   label: 'GoFile',
-  note: 'No account needed',
 
   async connected() {
     return true;

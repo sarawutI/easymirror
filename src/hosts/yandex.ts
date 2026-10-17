@@ -39,7 +39,7 @@ export async function yandexAccountLabel(token: string): Promise<string> {
 export const yandex: Destination = {
   id: 'yandex',
   label: 'Yandex.Disk',
-  note: 'Your account · 1 GB per file (50 GB with Yandex 360)',
+  note: '1 GB per file (50 GB with Yandex 360)',
   needsAccount: true,
 
   async connected() {

@@ -12,7 +12,7 @@ export const USERHASH_KEY = 'hosts.catbox.userhash';
 export const catbox: Destination = {
   id: 'catbox',
   label: 'Catbox',
-  note: 'No account needed · up to 200 MB',
+  note: 'up to 200 MB',
   maxBytes: MAX_BYTES,
 
   async connected() {

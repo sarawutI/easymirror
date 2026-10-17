@@ -4,17 +4,31 @@
 // Either way, all state goes back to the background through `post`.
 import { fileNameFrom, formatBytes } from '@/engine/filename';
 import { openSource, openTemp, removeTemp, saveToTemp, upload } from '@/engine/transfer';
-import type { DestinationCheck, EngineEvent, FileInfo, JobState, TransferJob, UploadPlan, UploadSpec, UploadState } from '@/engine/types';
+import type { DestinationCheck, EngineEvent, FetchSpec, FileInfo, JobState, TransferJob, UploadPlan, UploadSpec, UploadState } from '@/engine/types';
 
 const PROGRESS_INTERVAL_MS = 500;
 
 type Post = (event: EngineEvent) => Promise<unknown>;
 let post: Post = async () => undefined;
 
+/** Running transfers, so the background can cancel one. */
+const running = new Map<string, AbortController>();
+
 /** Runs one transfer; `deliver` hands engine events to the background and returns its answer. */
-export function runJob(job: TransferJob, deliver: Post): Promise<void> {
+export async function runJob(job: TransferJob, deliver: Post): Promise<void> {
   post = deliver;
-  return run(job);
+  const ctl = new AbortController();
+  running.set(job.id, ctl);
+  try {
+    await run(job, ctl.signal);
+  } finally {
+    running.delete(job.id);
+  }
+}
+
+/** Stops a transfer: its download or uploads end with a "Cancelled" error. */
+export function cancelRun(id: string) {
+  running.get(id)?.abort();
 }
 
 function send(event: EngineEvent) {
@@ -26,6 +40,18 @@ function sampleHeap() {
   const used = (performance as any).memory?.usedJSHeapSize ?? 0;
   peakHeap = Math.max(peakHeap, used);
   return peakHeap;
+}
+
+/** Speed over the last few seconds, in bytes per second (undefined until there's enough to tell). */
+function rateMeter() {
+  const samples: [time: number, bytes: number][] = [];
+  return (bytes: number) => {
+    const now = Date.now();
+    samples.push([now, bytes]);
+    while (samples.length > 2 && now - samples[0]![0] > 5000) samples.shift();
+    const [t0, b0] = samples[0]!;
+    return now - t0 >= 1000 ? Math.max(0, ((bytes - b0) * 1000) / (now - t0)) : undefined;
+  };
 }
 
 function throttled<T extends unknown[]>(fn: (...args: T) => void) {
@@ -71,13 +97,13 @@ async function prepareUploads(job: TransferJob, file: File): Promise<UploadSpec[
   return plan?.uploads ?? [];
 }
 
-async function run(job: TransferJob) {
+async function run(job: TransferJob, signal: AbortSignal) {
   const update = (patch: Partial<JobState>) =>
     send({ target: 'background', type: 'job-update', id: job.id, patch: { ...patch, peakHeapBytes: sampleHeap() } });
   const tempName = `${job.id}.part`;
 
   try {
-    const file = job.picked ? await usePickedFile(job, job.picked, tempName, update) : await download(job, tempName, update);
+    const file = job.picked ? await usePickedFile(job, job.picked, tempName, update) : await download(job, tempName, update, signal);
     if (!file) return;
     job.uploads = await prepareUploads(job, file);
     if (!job.uploads.length) {
@@ -85,7 +111,7 @@ async function run(job: TransferJob) {
       update({ status: 'done' });
       return;
     }
-    await uploadAll(job, file, update);
+    await uploadAll(job, file, update, signal);
   } catch (e) {
     update({ status: 'error', error: message(e) });
   } finally {
@@ -93,12 +119,30 @@ async function run(job: TransferJob) {
   }
 }
 
+/**
+ * How to ask for the rest of a plain GET download, from a byte on. If-Range makes the site
+ * send the whole (changed) file instead of a part of a different one; saveToTemp then gives up.
+ */
+function resumable(source: FetchSpec, res: Response, signal: AbortSignal): ((from: number) => Promise<Response>) | undefined {
+  if ((source.method ?? 'GET') !== 'GET' || source.form) return undefined;
+  const etag = res.headers.get('etag');
+  const validator = etag && !etag.startsWith('W/') ? etag : res.headers.get('last-modified');
+  const url = res.url || source.url;
+  return (from) =>
+    openSource({ ...source, url, headers: { ...source.headers, Range: `bytes=${from}-`, ...(validator ? { 'If-Range': validator } : {}) } }, signal);
+}
+
 /** Downloads the source into temp storage. Returns undefined when there's nothing to upload. */
-async function download(job: TransferJob, tempName: string, update: (p: Partial<JobState>) => unknown): Promise<File | undefined> {
+async function download(
+  job: TransferJob,
+  tempName: string,
+  update: (p: Partial<JobState>) => unknown,
+  signal: AbortSignal,
+): Promise<File | undefined> {
   const source = job.source!;
   let res: Response;
   try {
-    res = await openSource(source);
+    res = await openSource(source, signal);
     // On a refetch, a web page instead of the file usually means a login or
     // error page; treat it as a failed refetch so the browser's copy is kept.
     if (job.confirmSource && looksLikeWebPage(res)) {
@@ -133,10 +177,11 @@ async function download(job: TransferJob, tempName: string, update: (p: Partial<
   }
 
   update({ status: 'downloading' });
-  const progress = throttled((loaded: number, total?: number) => update({ downloaded: loaded, total }));
+  const rate = rateMeter();
+  const progress = throttled((loaded: number, total?: number) => update({ downloaded: loaded, total, rate: rate(loaded) }));
   let saved: File;
   try {
-    saved = await saveToTemp(res, tempName, progress);
+    saved = await saveToTemp(res, tempName, progress, { signal, reopen: resumable(source, res, signal) });
   } catch (e) {
     throw new Error(`Couldn't download the file: ${message(e)}`);
   }
@@ -158,10 +203,10 @@ async function usePickedFile(
   return new File([stored], info.name, { type: info.type || 'application/octet-stream' });
 }
 
-async function uploadAll(job: TransferJob, file: File, update: (p: Partial<JobState>) => unknown) {
+async function uploadAll(job: TransferJob, file: File, update: (p: Partial<JobState>) => unknown, signal: AbortSignal) {
   const uploadUpdate = (label: string, patch: UploadState) =>
     send({ target: 'background', type: 'upload-update', id: job.id, label, patch });
-  update({ status: 'uploading', downloaded: file.size, total: file.size, size: file.size });
+  update({ status: 'uploading', downloaded: file.size, total: file.size, size: file.size, rate: undefined });
 
   // One file feeds every destination; uploads run in parallel from disk.
   await Promise.all(
@@ -174,9 +219,10 @@ async function uploadAll(job: TransferJob, file: File, update: (p: Partial<JobSt
         });
         return;
       }
-      const report = throttled((sent: number) => uploadUpdate(spec.label, { sent, done: false }));
+      const rate = rateMeter();
+      const report = throttled((sent: number) => uploadUpdate(spec.label, { sent, done: false, rate: rate(sent) }));
       try {
-        const r = await upload(file, spec, report);
+        const r = await upload(file, spec, report, signal);
         await uploadUpdate(spec.label, { sent: file.size, done: true, status: r.status, response: r.response.slice(0, 4000) });
       } catch (e) {
         await uploadUpdate(spec.label, { sent: 0, done: true, error: message(e) });

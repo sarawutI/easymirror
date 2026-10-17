@@ -45,13 +45,15 @@ The `spike` build mode points every host at the local mock server in `spikes/ser
 ```
 src/
   entrypoints/
-    background.ts      job manager, right-click menu, notifications, page flow
-    offscreen/         transfer engine (download to browser disk, upload with progress)
+    background.ts      wires browser events (menus, messages, downloads) to src/background
+    offscreen/         Chrome's home for the transfer engine
     popup/             the popup UI
     options/           Settings page: connect accounts and keys
     spike/             test control page (spike builds only)
+  background/          jobs.ts (start, finish, cancel, try again, recover after a restart), flows.ts (page flow)
   accounts/            stored credentials and OAuth sign-in (Google, Yandex)
-  engine/              transfer code and shared types
+  engine/              the transfer engine (download to browser disk with resume, upload with progress) and shared types
+  messages.ts          typed messages between the popup, background and engine
   hosts/               one file per host: limits, request format, response → link
   jobs/store.ts        job state and settings in browser storage
 docs/                  research, plan, M0 results

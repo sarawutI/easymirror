@@ -12,7 +12,6 @@ const MAX_BYTES = 300 * 1024 ** 3; // "300GB maximum per file"
 export const onefichier: Destination = {
   id: 'onefichier',
   label: '1Fichier',
-  note: 'No account needed',
   maxBytes: MAX_BYTES,
 
   async connected() {

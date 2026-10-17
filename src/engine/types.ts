@@ -71,6 +71,8 @@ export type JobStatus =
 
 export interface UploadState {
   sent: number;
+  /** Bytes per second lately, while sending. */
+  rate?: number;
   done: boolean;
   status?: number;
   response?: string;
@@ -90,6 +92,8 @@ export interface JobState {
   size?: number;
   downloaded: number;
   total?: number;
+  /** Download speed lately, in bytes per second. */
+  rate?: number;
   uploads: Record<string, UploadState>;
   error?: string;
   peakHeapBytes?: number;
@@ -97,6 +101,10 @@ export interface JobState {
   pageMode?: 'opened' | 'watching';
   /** Set once the finish notification went out. */
   notified?: boolean;
+  /** The user cancelled it; the engine's remaining events are ignored. */
+  cancelled?: boolean;
+  /** Cut off by the browser closing or EasyMirror updating. */
+  interrupted?: boolean;
   startedAt: number;
   updatedAt: number;
 }

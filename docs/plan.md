@@ -120,6 +120,7 @@ Plus a **generic direct-URL source**: any link that returns a file directly.
 **M5 — Release**
 - Firefox build, privacy policy, Chrome Web Store and Firefox Add-ons submission.
 - 2026-10-17: version 1.0.0. Firefox build done (Manifest V2, engine in the background page; lint clean, not yet tried by hand). The Chrome build passes every e2e test in Edge too. Transfers now give up after 3 minutes with no bytes moving, or 15 minutes without an answer once the whole file is sent. Submitting to Firefox Add-ons and Edge Add-ons first; Chrome Web Store later.
+- 2026-10-17: version 1.0.1 after a full review. Reliability: jobs cut off by a browser restart or an update are closed out ("Interrupted") and their temp files deleted at startup; running mirrors can be cancelled; a dropped download resumes from the last byte (Range + If-Range, up to 3 times); hosts' answers must be web links. Popup: Try again, speed and time left, the "Mirror to" list folds into one line and groups hosts by "No account needed" / "Your accounts", single mirrors can be removed and only the newest 30 finished ones are kept, progress bars are labelled and finished mirrors are announced to screen readers. Code: the background is split into src/background/jobs.ts and flows.ts, with typed messages (src/messages.ts); spike-only message hooks are ignored in release builds.
 
 ## Risks
 

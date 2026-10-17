@@ -60,7 +60,6 @@ export function xfsDestination(site: XfsSite): Destination {
   return {
     id: site.id,
     label: site.label,
-    note: 'Your account (API key)',
     needsAccount: true,
 
     async connected() {

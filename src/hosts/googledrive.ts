@@ -65,7 +65,7 @@ export async function googleAccountLabel(token: string): Promise<string> {
 export const googledrive: Destination = {
   id: 'googledrive',
   label: 'Google Drive',
-  note: 'Your account · saved in an "EasyMirror" folder',
+  note: 'saved in an "EasyMirror" folder',
   needsAccount: true,
 
   async connected() {

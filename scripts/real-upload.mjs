@@ -83,7 +83,8 @@ try {
     await page.evaluate((a) => chrome.storage.local.set(a), accounts);
     await page.reload();
   }
-  await page.locator('#destinations input').first().waitFor();
+  await page.locator('#destinations input').first().waitFor({ state: 'attached' });
+  await page.evaluate(() => (document.getElementById('dest-picker').open = true));
   for (const box of await page.locator('#destinations input').all()) {
     const on = hosts.includes(await box.getAttribute('value'));
     if ((await box.isChecked()) !== on) await box.click();

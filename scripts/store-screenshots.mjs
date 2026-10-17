@@ -67,9 +67,9 @@ const JOBS = {
     downloaded: 2.3 * GB,
     total: 2.3 * GB,
     uploads: {
-      gofile: { sent: 0.64 * 2.3 * GB, done: false },
+      gofile: { sent: 0.64 * 2.3 * GB, done: false, rate: 11.8 * MB },
       catbox: { sent: 0, done: true, skipped: 'Catbox takes files up to 200 MB (this one is 2.3 GB)' },
-      pixeldrain: { sent: 0.41 * 2.3 * GB, done: false },
+      pixeldrain: { sent: 0.41 * 2.3 * GB, done: false, rate: 7.6 * MB },
     },
   }),
 };
@@ -99,21 +99,22 @@ async function captureExtension() {
     const page = await ctx.newPage();
     await page.goto(`chrome-extension://${id}/popup.html`);
 
-    const show = async (jobs, { url = '' } = {}) => {
+    const show = async (jobs, { url = '', hostsOpen = false } = {}) => {
       await page.evaluate(async (items) => {
         await chrome.storage.local.clear();
         await chrome.storage.local.set(items);
       }, { ...BASE_STORAGE, ...Object.fromEntries(jobs.map((j) => [`job:${j.id}`, j])) });
       await page.reload();
-      await page.waitForSelector('#destinations input');
+      await page.waitForSelector('#destinations input', { state: 'attached' });
       await page.waitForTimeout(400);
       // Once the user has granted access the hint is gone; show that state.
-      await page.evaluate((url) => {
+      await page.evaluate(({ url, hostsOpen }) => {
+        document.getElementById('dest-picker').open = hostsOpen;
         document.getElementById('permission-hint').hidden = true;
         const input = document.getElementById('url');
         input.value = url;
         input.blur();
-      }, url);
+      }, { url, hostsOpen });
     };
 
     // Whole popup, cut right below its content (one job each, so nothing is clipped).
@@ -122,7 +123,7 @@ async function captureExtension() {
       return page.screenshot({ clip: { x: 0, y: 0, width: 380, height } });
     };
 
-    await show([JOBS.finished[0]], { url: 'https://example.com/share/project-files.zip' });
+    await show([JOBS.finished[0]], { url: 'https://example.com/share/project-files.zip', hostsOpen: true });
     shots.popupFinished = await popupShot();
 
     await show([JOBS.waiting]);

@@ -27,10 +27,17 @@
       <label for="url">File or download page link</label>
       <input id="url" name="url" type="url" placeholder="https://gofile.io/d/… or https://…/file.zip" autocomplete="off" required />
 
-      <fieldset>
-        <legend>Mirror to</legend>
-        <div id="destinations"></div>
-      </fieldset>
+      <details id="dest-picker" class="dest-picker">
+        <summary>
+          <span class="dest-label">Mirror to</span>
+          <span id="dest-summary" class="dest-summary"></span>
+          <span id="dest-toggle" class="dest-toggle">Change</span>
+        </summary>
+        <fieldset>
+          <legend class="visually-hidden">Mirror to</legend>
+          <div id="destinations"></div>
+        </fieldset>
+      </details>
 
       <p id="permission-hint" class="hint" hidden>
         EasyMirror will ask once for permission to read files from other sites. It only uses it for links you mirror.
@@ -50,6 +57,7 @@
         host's page and choose "Mirror the next download on this page".
       </p>
       <ul id="jobs"></ul>
+      <p id="announce" class="visually-hidden" role="status" aria-live="polite"></p>
     </section>
 
     <footer class="footer">

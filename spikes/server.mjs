@@ -5,10 +5,11 @@
 //   GET  /stats                         sha256 + size of everything served/received
 //   GET  /host/page?variant=..&size=..&name=..   fake file host: cookie, countdown, button
 //        variants: link-multi | link-single | form-post | js-download | blob
-//   GET  /file/:name?size=N[&chunked=1][&stall=B]  same, named by path, optionally without
-//        Content-Length, or going quiet (connection left open) after B bytes
+//   GET  /file/:name?size=N[&chunked=1][&stall=B][&drop=B][&bps=N]  same, named by path; optionally
+//        without Content-Length, going quiet (connection left open) after B bytes, dropping
+//        the connection after B bytes (first request only), or slow. Answers Range requests.
 //   GET  /page.html, /missing             a web page and a 404, for error handling
-//   POST /mock/gofile/uploadfile         GoFile upload API stand-in
+//   POST /mock/gofile/uploadfile         GoFile upload API stand-in (sends a non-link for names containing "badlink")
 //   POST /mock/catbox/api.php            Catbox API stand-in (rejects names containing "reject",
 //                                        never answers for names containing "silent")
 //   /mock/buzzheavier, /mock/vikingfile, /mock/krakenfiles (+ /_uploader/gallery/upload)
@@ -33,24 +34,46 @@ const received = {}; // `${kind}:${name}` -> { bytes, sha256 }
 const sessions = new Set();
 const tokens = new Map(); // token -> { sess, single, used, size, name }
 
-function streamFile(res, size, name, extraHeaders = {}, { chunked = false, stallAt = Infinity } = {}) {
-  res.writeHead(200, {
+/** sha256 of the whole deterministic file of `size` bytes. */
+function fullHash(size) {
+  const hash = createHash('sha256');
+  for (let at = 0; at < size; at += BLOCK) hash.update(block.subarray(0, Math.min(BLOCK, size - at)));
+  return hash.digest('hex');
+}
+
+/**
+ * Sends the deterministic file. Options: no Content-Length (chunked), go quiet after
+ * `stallAt` bytes, drop the connection after `dropAt` bytes, send `bps` bytes per
+ * second, and (`ranges`) answer Range requests with 206 from `start`.
+ */
+function streamFile(res, size, name, extraHeaders = {}, { chunked = false, stallAt = Infinity, dropAt = Infinity, bps = 0, ranges = false, start = 0 } = {}) {
+  const partial = start > 0;
+  res.writeHead(partial ? 206 : 200, {
     'Content-Type': 'application/octet-stream',
-    ...(chunked ? {} : { 'Content-Length': size }),
+    ...(chunked ? {} : { 'Content-Length': size - start }),
+    ...(ranges ? { 'Accept-Ranges': 'bytes', ETag: `"${name}-${size}"` } : {}),
+    ...(partial ? { 'Content-Range': `bytes ${start}-${size - 1}/${size}` } : {}),
     ...extraHeaders,
   });
   const hash = createHash('sha256');
-  let sent = 0;
+  let sent = start;
+  const piece = bps ? Math.max(1024, Math.floor(bps / 10)) : BLOCK;
   const pump = () => {
     while (sent < size) {
       if (sent >= stallAt) return; // go quiet without closing
-      const n = Math.min(BLOCK, size - sent);
-      const chunk = n === BLOCK ? block : block.subarray(0, n);
+      if (sent >= dropAt) return res.socket.destroy();
+      const offset = sent % BLOCK;
+      const n = Math.min(piece, size - sent, BLOCK - offset, dropAt - sent);
+      const chunk = block.subarray(offset, offset + n);
       hash.update(chunk);
       sent += n;
-      if (!res.write(chunk)) return res.once('drain', pump);
+      const flowing = res.write(chunk);
+      if (bps) return setTimeout(pump, (n / bps) * 1000);
+      if (!flowing) return res.once('drain', pump);
     }
-    served[name] = { bytes: sent, sha256: hash.digest('hex'), finishedAt: Date.now() };
+    served[name] = partial
+      ? { bytes: size, sha256: fullHash(size), finishedAt: Date.now(), resumedFrom: start }
+      : { bytes: sent, sha256: hash.digest('hex'), finishedAt: Date.now() };
     res.end();
   };
   res.on('close', () => {
@@ -58,6 +81,9 @@ function streamFile(res, size, name, extraHeaders = {}, { chunked = false, stall
   });
   pump();
 }
+
+/** Names whose first download was cut off on purpose (the "drop" option). */
+const dropped = new Set();
 
 const gofileAuth = []; // Authorization header of each GoFile upload, in order
 
@@ -364,9 +390,21 @@ createServer((req, res) => {
 
   if (req.method === 'GET' && p.startsWith('/file/')) {
     const name = decodeURIComponent(p.slice('/file/'.length));
-    return streamFile(res, Number(url.searchParams.get('size')), name, {}, {
+    const size = Number(url.searchParams.get('size'));
+    const param = (key) => (url.searchParams.has(key) ? Number(url.searchParams.get(key)) : undefined);
+    // A Range request resumes, unless If-Range names another version of the file.
+    const range = /^bytes=(\d+)-$/.exec(req.headers.range ?? '');
+    const ifRange = req.headers['if-range'];
+    const start = range && (!ifRange || ifRange === `"${name}-${size}"`) ? Number(range[1]) : 0;
+    const drop = param('drop');
+    const dropAt = drop !== undefined && !dropped.has(name) ? (dropped.add(name), drop) : Infinity;
+    return streamFile(res, size, name, {}, {
       chunked: url.searchParams.has('chunked'),
-      stallAt: url.searchParams.has('stall') ? Number(url.searchParams.get('stall')) : Infinity,
+      stallAt: param('stall') ?? Infinity,
+      dropAt,
+      bps: param('bps') ?? 0,
+      ranges: true,
+      start,
     });
   }
 
@@ -379,7 +417,8 @@ createServer((req, res) => {
     gofileAuth.push(auth ?? null);
     return receiveMultipart(req, 'file', (file) => {
       const code = randomBytes(4).toString('hex');
-      const data = { downloadPage: `https://gofile.io/d/${code}`, parentFolder: randomBytes(8).toString('hex'), name: file.filename };
+      const page = file.filename.includes('badlink') ? 'javascript:alert(1)' : `https://gofile.io/d/${code}`;
+      const data = { downloadPage: page, parentFolder: randomBytes(8).toString('hex'), name: file.filename };
       if (!auth) data.guestToken = 'guest-test-token';
       received[`gofile:${file.filename}`] = file;
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ status: 'ok', data }));

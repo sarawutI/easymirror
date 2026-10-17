@@ -25,6 +25,12 @@ export async function removeJobs(ids: string[]) {
   await browser.storage.local.remove(ids.map(jobKey));
 }
 
+/** Keeps the newest `keep` finished jobs and deletes older ones. Running jobs are never touched. */
+export async function pruneJobs(keep: number) {
+  const old = (await listJobs()).filter(isFinished).slice(keep);
+  if (old.length) await removeJobs(old.map((j) => j.id));
+}
+
 // Updates arrive from several places at once; serialize read-modify-write.
 let writeChain: Promise<unknown> = Promise.resolve();
 export function patchJob(id: string, fn: (job: JobState) => void): Promise<JobState> {

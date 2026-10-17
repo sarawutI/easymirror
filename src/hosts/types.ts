@@ -19,8 +19,8 @@ export type DestinationId =
 export interface Destination {
   id: DestinationId;
   label: string;
-  /** One line shown under the checkbox, e.g. "No account needed · up to 200 MB". */
-  note: string;
+  /** A short detail shown under the checkbox, e.g. "up to 200 MB". */
+  note?: string;
   maxBytes?: number;
   /** Hosts that only work with the user's own account. */
   needsAccount?: boolean;

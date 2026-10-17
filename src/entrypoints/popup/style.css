@@ -102,6 +102,72 @@ fieldset {
   border: 0;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.dest-picker {
+  margin-top: 12px;
+}
+
+.dest-picker summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.dest-picker summary::-webkit-details-marker {
+  display: none;
+}
+
+.dest-picker summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.dest-label {
+  flex: none;
+  font-weight: 600;
+}
+
+.dest-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dest-summary.none {
+  color: var(--error);
+}
+
+.dest-toggle {
+  flex: none;
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.dest-picker fieldset {
+  margin-top: 4px;
+}
+
+.dest-group {
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .dest-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -284,6 +350,36 @@ section {
 
 .job + .job {
   margin-top: 8px;
+}
+
+.job-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.job-head .job-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.job-remove {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: -2px -4px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.job-remove:hover {
+  background: var(--track);
+  color: var(--text);
 }
 
 .job-title {

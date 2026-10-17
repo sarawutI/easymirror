@@ -22,7 +22,6 @@ const BLOCKED = new Set(
 export const fileditch: Destination = {
   id: 'fileditch',
   label: 'FileDitch',
-  note: 'No account needed',
   maxBytes: MAX_BYTES,
 
   async connected() {

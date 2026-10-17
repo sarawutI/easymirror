@@ -11,7 +11,7 @@ const MAX_BYTES = 1024 * 1024 * 1024;
 export const krakenfiles: Destination = {
   id: 'krakenfiles',
   label: 'Krakenfiles',
-  note: 'No account needed · up to 1 GB',
+  note: 'up to 1 GB',
   maxBytes: MAX_BYTES,
 
   async connected() {

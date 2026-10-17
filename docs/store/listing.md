@@ -38,7 +38,9 @@ Many sites hide the real file behind a page with a Download button. Paste the pa
 
 FEATURES
 • Large files: tested with 5 GB files (1Fichier accepts up to 300 GB). Files are kept on disk during the transfer, not in memory, and sent in pieces where the host works that way.
-• One download, several uploads in parallel.
+• One download, several uploads in parallel, with speed and time left.
+• A dropped download carries on where it stopped, when the site allows it.
+• Cancel a mirror at any time, or try a failed one again with one click.
 • Checks each service's limits first (for example, Catbox's 200 MB limit and blocked file types) and tells you why a service was skipped.
 • Clear messages when something goes wrong, per service.
 • Notification when a mirror is done.
