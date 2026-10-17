@@ -2,6 +2,7 @@ import { redirectUrl, signIn, type OAuthProvider } from '@/accounts/oauth';
 import { googleProvider, yandexProvider } from '@/accounts/providers';
 import { clearAccount, getAccount, setAccount, type AccountId } from '@/accounts/store';
 import { oauthHostsEnabled } from '@/features';
+import { DONATE } from '@/links';
 import { USERHASH_KEY } from '@/hosts/catbox';
 import { TOKEN_KEY as GOFILE_TOKEN_KEY, TOKEN_KIND_KEY as GOFILE_KIND_KEY } from '@/hosts/gofile';
 import { googleAccountLabel, SHARE_KEY } from '@/hosts/googledrive';
@@ -226,6 +227,12 @@ function yandexCard() {
       "Files go to EasyMirror's own folder under Applications on your Disk, and get a public link. EasyMirror can't see the rest of your Disk.",
     label: yandexAccountLabel,
   });
+}
+
+if (DONATE) {
+  const donate = document.getElementById('donate-link') as HTMLAnchorElement;
+  donate.href = DONATE;
+  donate.hidden = false;
 }
 
 const OAUTH = oauthHostsEnabled(import.meta.env.MODE);

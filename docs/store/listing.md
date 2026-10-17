@@ -47,6 +47,9 @@ ACCOUNTS
 • GoFile and Catbox work without an account. You can add your own GoFile token or Catbox userhash in Settings.
 • Pixeldrain needs your own API key, added in Settings.
 
+PROBLEMS AND FEEDBACK
+Something didn't work? Press "Report this problem" on the failed mirror, or "Report a problem" at the bottom of the popup. You'll see exactly which technical details go with your report before anything is sent, and file names and links are left out unless you choose to include them.
+
 PRIVACY
 EasyMirror has no server, no analytics and no ads. Your files, links and keys go only to the site the file comes from and the services you choose. Keys and history are stored on your device only. Full policy: [PRIVACY POLICY URL]
 
@@ -99,7 +102,7 @@ All code ships in the package. The extension only sends and receives file data a
 
 ### Data usage
 
-EasyMirror never sends data to the developer, but Chrome counts data the extension handles and transmits anywhere. Recommended answers:
+EasyMirror only sends data to the developer when the user submits a problem report, but Chrome counts data the extension handles and transmits anywhere. Recommended answers:
 
 | Data type | Tick? | Why |
 |---|---|---|
@@ -109,7 +112,7 @@ EasyMirror never sends data to the developer, but Chrome counts data the extensi
 | **Authentication information** | **Yes** | The user's Pixeldrain API key, GoFile token and Catbox userhash are stored locally and sent to that service. |
 | Personal communications | No | |
 | Location | No | |
-| Web history | No | Source links are kept in local history only, never transmitted. |
+| **Web history** | **Yes** (conservative) | Source links stay in local history, except when the user ticks "include file names and links" in a problem report and submits the feedback form. |
 | **User activity** | **Yes** (conservative) | The "watch this tab" feature monitors one tab's network requests. It stays local, but this category covers network monitoring. |
 | **Website content** | **Yes** | The files the user mirrors are downloaded from websites and uploaded to the chosen services. |
 
@@ -180,20 +183,22 @@ Download pages: open a GoFile download page (https://gofile.io/d/...), click the
 Pixeldrain needs a free Pixeldrain account and API key (Settings page); it's optional.
 
 The extension has no server and no analytics. Optional all-sites access is used only to download the file the user chose to mirror.
+
+"Report a problem" opens an extension page that previews the technical details, then opens an external feedback form in a new tab with those details filled in. Nothing is submitted unless the user submits the form.
 ```
 
 ---
 
 ## Before launch: courtesy email to Catbox
 
-Catbox's FAQ says it can't be used for commercial services without approval. EasyMirror is free, but it sends uploads to Catbox from many users, so ask first. Draft, to send from your own address (find the contact address on catbox.moe):
+Catbox's FAQ says it can't be used for commercial services without approval. EasyMirror is free, but it sends uploads to Catbox from many users and may ask for donations, so ask first. If they say no, remove Catbox from `src/hosts/index.ts`, the host permissions in `wxt.config.ts`, and these drafts. Draft, to send from your own address (find the contact address on catbox.moe):
 
 ```
 Subject: Free browser extension that uploads to Catbox via your API
 
 Hi,
 
-I've made a free browser extension called EasyMirror. It lets people copy a file from a link to file hosts they choose, and Catbox is one of the options. It uses your documented API (reqtype=fileupload, plus the optional userhash), runs entirely in the user's browser from their own IP, and checks your 200 MB limit and blocked file types before uploading. There are no ads and no payments.
+I've made a free browser extension called EasyMirror. It lets people copy a file from a link to file hosts they choose, and Catbox is one of the options. It uses your documented API (reqtype=fileupload, plus the optional userhash), runs entirely in the user's browser from their own IP, and checks your 200 MB limit and blocked file types before uploading. There are no ads and no paid features, just an optional donation link.
 
 Before I publish it in the Chrome, Edge and Firefox stores, I wanted to check that you're OK with this, and whether there's anything you'd like me to do differently (rate limits, a User-Agent, a link back, or leaving Catbox out).
 

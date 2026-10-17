@@ -91,6 +91,12 @@ body {
   font-weight: 400;
 }
 
+.footer-links {
+  display: flex;
+  gap: 18px;
+  margin-top: 20px;
+}
+
 .dev {
   margin-top: 24px;
   color: var(--muted);

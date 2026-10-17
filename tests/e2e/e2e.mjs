@@ -329,6 +329,50 @@ try {
     assert.match(r.status, /Couldn't download the file: source answered HTTP 404/);
   });
 
+  await test('a failed mirror can be reported, with details shown first and names left out', async () => {
+    // The newest job is the broken-link mirror from the previous test.
+    const reportPromise = context.waitForEvent('page');
+    await card().getByRole('button', { name: 'Report this problem' }).click();
+    const report = await reportPromise;
+    await report.waitForLoadState('domcontentloaded');
+    assert.match(report.url(), /\/report\.html\?job=/);
+    const pre = report.locator('#details');
+    await pre.filter({ hasText: 'Reported mirror:' }).waitFor({ timeout: 5000 });
+    const text = await pre.innerText();
+    assert.match(text, /^EasyMirror \d+\.\d+\.\d+/);
+    assert.match(text, /error: Couldn't download the file: source answered HTTP 404/);
+    assert.doesNotMatch(text, /127\.0\.0\.1\/missing/, 'source link left out by default');
+    await report.locator('#include-names').check();
+    await pre.filter({ hasText: 'source: http://127.0.0.1:8787/missing' }).waitFor({ timeout: 5000 });
+    // The form opens with the details filled in.
+    const formPromise = context.waitForEvent('page');
+    await report.getByRole('button', { name: 'Open the feedback form' }).click();
+    const form = await formPromise;
+    const details = new URL(form.url()).searchParams.get('details');
+    assert.match(form.url(), /^http:\/\/127\.0\.0\.1:8787\/mock\/form\?details=/);
+    assert.match(details, /Reported mirror:/);
+    assert.match(details, /source: http:\/\/127\.0\.0\.1:8787\/missing/);
+    await form.close();
+    // Unticking "Include technical details" sends an empty field.
+    await report.locator('#include-details').uncheck();
+    const emptyPromise = context.waitForEvent('page');
+    await report.getByRole('button', { name: 'Open the feedback form' }).click();
+    const empty = await emptyPromise;
+    assert.equal(new URL(empty.url()).searchParams.get('details'), '');
+    await empty.close();
+    await report.close();
+  });
+
+  await test('popup footer links to the report page and the donation page', async () => {
+    assert.equal(await popup.locator('#donate-link').getAttribute('href'), 'http://127.0.0.1:8787/mock/donate');
+    const pagePromise = context.waitForEvent('page');
+    await popup.click('#report-link');
+    const report = await pagePromise;
+    await report.waitForLoadState('domcontentloaded');
+    assert.match(report.url(), /\/report\.html$/);
+    await report.close();
+  });
+
   await test('rejects text that is not a link', async () => {
     await popup.fill('#url', 'not a link');
     await popup.click('#mirror');

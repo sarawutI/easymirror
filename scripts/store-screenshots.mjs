@@ -135,7 +135,9 @@ async function captureExtension() {
     await page.goto(`chrome-extension://${id}/options.html`);
     await page.waitForSelector('#host-pixeldrain .state');
     await page.waitForTimeout(300);
-    shots.settings = await page.screenshot({ clip: { x: 0, y: 0, width: 620, height: 560 } });
+    // Cut below the host cards, so the footer links aren't sliced in half.
+    const settingsHeight = await page.evaluate(() => Math.ceil(document.getElementById('hosts').getBoundingClientRect().bottom + 24));
+    shots.settings = await page.screenshot({ clip: { x: 0, y: 0, width: 620, height: Math.min(560, settingsHeight) } });
   } finally {
     await ctx.close();
     rmSync(profile, { recursive: true, force: true });

@@ -4,6 +4,7 @@ import type { JobState, UploadState } from '@/engine/types';
 import { destinationById, destinations } from '@/hosts';
 import type { DestinationId } from '@/hosts/types';
 import { getJob, getSettings, isFinished, isJobKey, listJobs, removeJobs, saveSettings, summarize } from '@/jobs/store';
+import { DONATE } from '@/links';
 
 const ALL_SITES = { origins: ['<all_urls>'] };
 const MAX_JOBS_SHOWN = 20;
@@ -180,6 +181,11 @@ pickInput.addEventListener('change', async () => {
   }
 });
 
+function openReport(jobId?: string) {
+  const query = jobId ? `?job=${encodeURIComponent(jobId)}` : '';
+  void browser.tabs.create({ url: browser.runtime.getURL(`/report.html${query}`) });
+}
+
 function openPicker(id: string) {
   void browser.tabs.create({ url: browser.runtime.getURL(`/popup.html?pick=${encodeURIComponent(id)}`) });
 }
@@ -278,6 +284,12 @@ function jobCard(job: JobState) {
     choose.addEventListener('click', () => openPicker(job.id));
     actions.push(choose);
   }
+  const failed = job.status === 'error' || (job.status === 'done' && Object.values(job.uploads).some((u) => u.error));
+  if (failed && job.error !== 'Cancelled') {
+    const report = h('button', { type: 'button', className: 'copy', textContent: 'Report this problem' });
+    report.addEventListener('click', () => openReport(job.id));
+    actions.push(report);
+  }
   if (links.length > 1) actions.push(copyButton(links.join('\n'), 'Copy all links'));
   const statusClass = progress.isError ? ' error' : progress.isAction ? ' action' : '';
   return h(
@@ -324,6 +336,15 @@ const prefill = params.get('url');
 if (prefill) urlInput.value = prefill;
 
 document.getElementById('open-settings')!.addEventListener('click', () => void browser.runtime.openOptionsPage());
+document.getElementById('report-link')!.addEventListener('click', (e) => {
+  e.preventDefault();
+  openReport();
+});
+if (DONATE) {
+  const donate = $<HTMLAnchorElement>('donate-link');
+  donate.href = DONATE;
+  donate.hidden = false;
+}
 if (pickJobId) void setUpPicker(pickJobId);
 void browser.permissions.contains(ALL_SITES).then((granted) => (permissionHint.hidden = granted));
 void renderDestinations();

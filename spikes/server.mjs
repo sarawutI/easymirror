@@ -248,6 +248,9 @@ createServer((req, res) => {
     });
   }
 
+  if (req.method === 'GET' && (p === '/mock/form' || p === '/mock/donate')) {
+    return res.writeHead(200, { 'Content-Type': 'text/html' }).end(`<!doctype html><title>${p.slice(6)}</title><p>${p.slice(6)} page`);
+  }
   if (p.startsWith('/mock/pixeldrain/')) return mockPixeldrain(req, res, p, url);
   if (p.startsWith('/mock/google/')) return mockGoogle(req, res, p, url);
   if (p.startsWith('/mock/yandex/')) return mockYandex(req, res, p, url);

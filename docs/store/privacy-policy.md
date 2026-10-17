@@ -1,6 +1,7 @@
 <!--
 DRAFT. Before publishing, replace every [BRACKETED] placeholder and host this page
 at a public URL (e.g. GitHub Pages). The stores link to that URL.
+Remove the "Donations" section if src/links.ts has no DONATE link at release.
 Keep it in sync with the code: if a version adds analytics, a server, or Google
 Drive / Yandex.Disk sign-in (src/features.ts), this policy must be updated first.
 Google sign-in in particular requires a "Limited Use" statement for Google user data.
@@ -12,7 +13,7 @@ _Last updated: [DATE]_
 
 EasyMirror is a browser extension that copies a file from a link to file-hosting services you choose, and gives you the new share links. This policy explains what EasyMirror does with your data.
 
-**The short version:** EasyMirror has no server. The developer never receives your files, your links, your keys or any information about how you use the extension. Everything happens in your browser, between the site the file comes from and the hosting services you pick.
+**The short version:** EasyMirror has no server. The developer never receives your files, your keys or any information about how you use the extension, unless you choose to send a problem report (see "Reporting a problem" below). Everything else happens in your browser, between the site the file comes from and the hosting services you pick.
 
 ## What EasyMirror stores on your device
 
@@ -35,7 +36,22 @@ EasyMirror only sends data where it has to, to do what you asked:
    - Catbox: https://catbox.moe/legal.php
    - Pixeldrain: https://docs.pixeldrain.com/questions_and_answers/ and https://docs.pixeldrain.com/content_policy/
 
-EasyMirror sends nothing anywhere else. It has no analytics, ads or tracking, and it does not sell or share your data with anyone.
+EasyMirror sends nothing anywhere else on its own. It has no analytics, ads or tracking, and it does not sell or share your data with anyone.
+
+## Reporting a problem
+
+The popup and Settings page have a "Report a problem" link, and a failed mirror has a "Report this problem" button. They open a page that shows the technical details that would go with your report, then opens our feedback form ([FORM PROVIDER, e.g. Tally]) in a new tab:
+
+- **What's included by default:** the EasyMirror version, your browser's user-agent string, which hosting services are set up (not your keys), and the time, status, size and error messages of your last 5 mirrors.
+- **What's left out unless you tick the box:** file names, source links and share links.
+- You can see exactly what will be included before anything happens, and untick "Include technical details" to send none.
+- **Nothing is sent until you submit the form yourself.** The details are placed in the form's address when it opens, so the form provider receives them when the form page loads, but they reach the developer only if you submit it. If you close the tab, nothing is submitted.
+
+What you submit is stored by [FORM PROVIDER] under its privacy policy ([FORM PROVIDER PRIVACY URL]) and is used only to fix problems and improve EasyMirror. To have a report deleted, write to [CONTACT EMAIL].
+
+## Donations
+
+The "Support EasyMirror" link opens [DONATION SITE] in a new tab. EasyMirror sends it no data. If you donate, that site's own privacy policy applies.
 
 ## Watching a page for a download
 
@@ -65,6 +81,7 @@ EasyMirror does not look at other tabs, and it doesn't touch downloads you start
 - **Mirror history:** press "Clear finished" in the popup.
 - **Keys and tokens:** remove them on the Settings page.
 - **Everything:** uninstalling EasyMirror deletes all of its data from your browser.
+- **A report you submitted:** write to [CONTACT EMAIL] and it will be deleted.
 
 Files you uploaded stay on the hosting services. Delete them there, following each service's rules.
 

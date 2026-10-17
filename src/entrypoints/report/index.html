@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Report a problem · EasyMirror</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <img src="/icon/32.png" alt="" width="20" height="20" />
+      <h1>Report a problem or send feedback</h1>
+    </header>
+
+    <p>
+      Tell us what went wrong, what you expected, or what you'd like EasyMirror to do. The form opens in a new tab.
+    </p>
+
+    <section class="box" aria-labelledby="details-title">
+      <h2 id="details-title">Technical details</h2>
+      <p class="hint">
+        These help us find the problem. Below is exactly what will be added to the form, and nothing is sent until you
+        submit it there.
+      </p>
+      <label class="check"><input id="include-details" type="checkbox" checked /> Include technical details</label>
+      <label class="check">
+        <input id="include-names" type="checkbox" /> Also include file names and links from my recent mirrors
+      </label>
+      <pre id="details" tabindex="0" aria-label="Technical details that will be included"></pre>
+    </section>
+
+    <p id="no-form" class="hint" hidden>The feedback form isn't set up in this build yet.</p>
+    <p id="paste-hint" class="hint" hidden>The details were copied. Paste them into the form.</p>
+    <div class="actions">
+      <button id="open-form" type="button" class="primary">Open the feedback form</button>
+      <button id="copy" type="button" class="plain">Copy details</button>
+    </div>
+    <p id="status" class="hint" role="status"></p>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

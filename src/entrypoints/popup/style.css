@@ -133,6 +133,24 @@ fieldset {
   color: var(--accent);
 }
 
+.footer {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.footer a {
+  color: var(--muted);
+}
+
+.footer a:hover {
+  color: var(--accent);
+}
+
 .header-link {
   margin-left: auto;
   font-size: 13px;
